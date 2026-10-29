@@ -1,5 +1,7 @@
 # 模板服务器与未知模板闭环
 
+> 旧实现参考文档。当前独立模板服务由 AzurPilotCloud 仓库部署，管理页面接入主服务器同一个 `/admin/` 面板；当前接入配置与行为请看[独立模板服务接入](template-service-integration.md)。下文的独立模板后台不再是新服务的部署方式。
+
 模板服务器是独立部署的二进制（`cmd/templateserver`），拥有自己的 PostgreSQL，负责：
 
 1. 模板的增删改查与去重匹配；

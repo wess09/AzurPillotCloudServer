@@ -270,5 +270,6 @@ func AllModels() []any {
 		&CommissionCatalog{},
 		&ContentRelease{}, &Template{}, &TemplateState{},
 		&UnknownTemplate{}, &UnknownMapping{}, &UnknownClusterAlias{},
+		&TemplateSyncState{}, &TemplateItemMapping{}, &TemplateEventReceipt{},
 	}
 }

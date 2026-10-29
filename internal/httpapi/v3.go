@@ -132,6 +132,11 @@ func (s *Server) handleV3UnknownTemplate(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) templateRevision(r *http.Request) uint64 {
+	if s.deps.TemplateSync != nil {
+		if revision, err := s.deps.TemplateSync.Revision(r.Context()); err == nil {
+			return revision
+		}
+	}
 	if s.deps.Templates == nil || !s.deps.Templates.Enabled() {
 		return 0
 	}

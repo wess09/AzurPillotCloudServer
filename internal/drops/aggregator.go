@@ -17,6 +17,12 @@ type Aggregator struct {
 	db       *gorm.DB
 	interval time.Duration
 	logger   *slog.Logger
+	wake     <-chan struct{}
+}
+
+func (a *Aggregator) WithWake(wake <-chan struct{}) *Aggregator {
+	a.wake = wake
+	return a
 }
 
 func NewAggregator(db *gorm.DB, interval time.Duration, logger *slog.Logger) *Aggregator {
@@ -40,6 +46,10 @@ func (a *Aggregator) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-a.wake:
+			if err := a.RunOnce(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				a.logger.Warn("模板映射后的历史聚合失败", "err", err)
+			}
 		case <-ticker.C:
 			if err := a.RunOnce(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				a.logger.Warn("v3 聚合失败", "err", err)
@@ -102,6 +112,16 @@ func (a *Aggregator) aggregateHour(ctx context.Context, hour time.Time, maxID ui
 			return err
 		}
 
+		var mappings []v3db.TemplateItemMapping
+		if err := tx.Find(&mappings).Error; err != nil {
+			return err
+		}
+		aliases := make(map[string]v3db.TemplateItemMapping, len(mappings))
+		for _, mapping := range mappings {
+			aliases[mapping.UnknownID] = mapping
+		}
+		commissionItems = resolveCommissionItems(commissionItems, aliases)
+		researchItems = resolveResearchItems(researchItems, aliases)
 		commissionSamples, commissionRows := aggregateCommission(hour, events, commissionItems)
 		researchSamples, researchRows := aggregateResearch(hour, events, researchItems)
 

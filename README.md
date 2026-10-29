@@ -10,7 +10,9 @@
 - 公告与更新策略静态文件的**生成与 Cloudflare Workers 发布**（凭据只保存在服务器端）
 - **/api/v1/admin/*** —— 运维管理接口（Bearer Token，非客户端契约）
 
-技术栈：Go 1.26 标准库 `net/http` + `pgx/v5`（PostgreSQL），无 Web 框架、无 ORM。
+技术栈：Go 1.26 标准库 `net/http`，PostgreSQL；原有接口使用 `pgx/v5`，v3 与模板映射副本使用 GORM，无 Web 框架。
+
+独立模板身份服务现由 **AzurPilotCloud** 仓库部署：统一后台入口、服务间配置与映射同步见[独立模板服务接入](docs/template-service-integration.md)。模板服务器与主统计服务器使用独立进程及数据库。
 
 ## 目录结构
 

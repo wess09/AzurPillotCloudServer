@@ -90,6 +90,9 @@ type Config struct {
 	TemplateIngestURL string
 	// TemplateIngestToken 是调用模板服务器的 Bearer 凭据。
 	TemplateIngestToken string
+	TemplateAdminURL    string
+	TemplateAdminToken  string
+	TemplateEventToken  string
 
 	Cloudflare Cloudflare
 }
@@ -127,6 +130,9 @@ func Load() (Config, error) {
 		TemplateProxyCache:      envDuration("TEMPLATE_PROXY_CACHE", 60*time.Second),
 		TemplateIngestURL:       env("TEMPLATE_INGEST_URL", ""),
 		TemplateIngestToken:     env("TEMPLATE_INGEST_TOKEN", ""),
+		TemplateAdminURL:        env("TEMPLATE_ADMIN_URL", ""),
+		TemplateAdminToken:      env("TEMPLATE_ADMIN_TOKEN", ""),
+		TemplateEventToken:      env("TEMPLATE_EVENT_TOKEN", ""),
 	}
 	cfg.Cloudflare = Cloudflare{
 		AccountID:       env("CF_ACCOUNT_ID", ""),

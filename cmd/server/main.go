@@ -32,6 +32,7 @@ import (
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
 	"ap-cloud-server/internal/templateproxy"
+	"ap-cloud-server/internal/templatesync"
 	"ap-cloud-server/internal/v3db"
 	"ap-cloud-server/internal/version"
 )
@@ -72,6 +73,8 @@ func run() error {
 
 	// 1.1 v3 委托/科研统计（独立 GORM 连接池）。
 	var dropsSvc *drops.Service
+	var templateSync *templatesync.Service
+	templateWake := make(chan struct{}, 1)
 	templateProxy, err := templateproxy.New(cfg.TemplatePublicBase, cfg.TemplateProxyCache)
 	if err != nil {
 		return err
@@ -89,11 +92,12 @@ func run() error {
 			return err
 		}
 		dropsSvc = drops.NewService(v3store.DB)
+		templateSync = templatesync.New(v3store.DB, templateWake)
 		aggCtx, aggCancel := context.WithCancel(context.WithoutCancel(ctx))
 		aggDone := make(chan struct{})
 		go func() {
 			defer close(aggDone)
-			drops.NewAggregator(v3store.DB, cfg.AggInterval, logger).Run(aggCtx)
+			drops.NewAggregator(v3store.DB, cfg.AggInterval, logger).WithWake(templateWake).Run(aggCtx)
 		}()
 		defer func() {
 			aggCancel()
@@ -154,6 +158,7 @@ func run() error {
 		Drops:          dropsSvc,
 		Templates:      templateProxy,
 		TemplateIngest: templateIngest,
+		TemplateSync:   templateSync,
 		Cfg:            cfg,
 		Store:          st,
 		Cache:          cache,

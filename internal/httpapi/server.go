@@ -14,6 +14,7 @@ import (
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
 	"ap-cloud-server/internal/templateproxy"
+	"ap-cloud-server/internal/templatesync"
 )
 
 // Backend 是 HTTP 层需要的存储接口；*store.Store 天然满足，
@@ -50,6 +51,7 @@ type Deps struct {
 	Templates *templateproxy.Proxy
 	// TemplateIngest 为 nil 时未知模板上传返回 503。
 	TemplateIngest *templateproxy.Ingest
+	TemplateSync   *templatesync.Service
 	Cfg            config.Config
 	Store          Backend
 	Cache          *statuscache.Cache
@@ -107,6 +109,8 @@ func New(deps Deps) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("POST /internal/v1/templates/events", s.handleTemplateEvent)
+	mux.HandleFunc("/api/v1/admin/template-service/", s.adminAuth(s.handleTemplateAdmin))
 	// v2 动态接口：方法在处理器内部校验，错误方法返回统一 405 信封。
 	mux.HandleFunc("/api/v2/get/server", requireDeviceID(s.handleGetServer))
 	mux.HandleFunc("/api/v2/get/maintenance", requireDeviceID(s.handleGetMaintenance))
