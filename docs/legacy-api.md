@@ -8,7 +8,6 @@
 |---|---|
 | `GET /api/v1/servers/{region}_{server_id}` | AP `module/server_checker.py`：按最后一个下划线拆分复合 ID，支持 `cn_ios`、`cn_channel`；复用 v2 网关缓存与 `server.id/name/status`，兼容客户端无需新增请求头。 |
 | `POST /api/upload`、`/api/upload/` | AP 历史 `module/statistics/azurstats.py`：multipart `file/device_id/genre/combat_count`；HTTP 200。也支持上游 Alas `User-Agent: Alas (<id>)` 单文件上传，兼容 Lsky `status/data.md5` 和 Imgurl `code/imgid` 回执。 |
-| `GET /api/data/opsi_items` | AP 历史 `module/statistics/azurstats.py`：`device_id/genre/limit/offset`，返回 `data` 数组。保留 imgid、海域、侵蚀等级、战斗数及物品标签，仅查询认证 OCR 当前版本。 |
 | `POST /api/telemetry` | 当前 `module/statistics/cl1_data_submitter.py`：原月度累计字段，无需新增请求头。`net_stamina_gain` 表示原始明石行动力，派生值由服务端重算。 |
 | `GET /api/get/announcement` | 当前 `module/base/api_client.py`：根级 `announcementId/title/content/url`；无公告或同 ID 返回 HTTP 200 `{}`。 |
 | `GET /api/force_update` | 当前 `deploy/git.py`：根级 JSON 布尔值。 |
