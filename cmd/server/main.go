@@ -23,6 +23,7 @@ import (
 
 	"ap-cloud-server/internal/adminui"
 	"ap-cloud-server/internal/config"
+	"ap-cloud-server/internal/drops"
 	"ap-cloud-server/internal/gateway"
 	"ap-cloud-server/internal/httpapi"
 	"ap-cloud-server/internal/maintenance"
@@ -30,6 +31,8 @@ import (
 	"ap-cloud-server/internal/statistics"
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
+	"ap-cloud-server/internal/templateproxy"
+	"ap-cloud-server/internal/v3db"
 	"ap-cloud-server/internal/version"
 )
 
@@ -66,6 +69,41 @@ func run() error {
 	}
 	defer st.Close()
 	logger.Info("数据库连接就绪")
+
+	// 1.1 v3 委托/科研统计（独立 GORM 连接池）。
+	var dropsSvc *drops.Service
+	templateProxy, err := templateproxy.New(cfg.TemplatePublicBase, cfg.TemplateProxyCache)
+	if err != nil {
+		return err
+	}
+	templateIngest, err := templateproxy.NewIngest(cfg.TemplateIngestURL, cfg.TemplateIngestToken)
+	if err != nil {
+		return err
+	}
+	if templateIngest == nil {
+		logger.Info("TEMPLATE_INGEST_URL 未配置，未知模板上传接口返回 503")
+	}
+	if cfg.V3Enabled {
+		v3store, err := v3db.Open(ctx, cfg.DatabaseURL)
+		if err != nil {
+			return err
+		}
+		dropsSvc = drops.NewService(v3store.DB)
+		aggCtx, aggCancel := context.WithCancel(context.WithoutCancel(ctx))
+		aggDone := make(chan struct{})
+		go func() {
+			defer close(aggDone)
+			drops.NewAggregator(v3store.DB, cfg.AggInterval, logger).Run(aggCtx)
+		}()
+		defer func() {
+			aggCancel()
+			<-aggDone
+			_ = v3store.Close()
+		}()
+		logger.Info("v3 委托/科研统计已启用", "agg_interval", cfg.AggInterval)
+	} else {
+		logger.Warn("V3_ENABLED=false，委托/科研接口返回 503")
+	}
 
 	// 2. 区服状态缓存（后台保活）。
 	cache := statuscache.New(
@@ -111,14 +149,17 @@ func run() error {
 
 	// 5. HTTP 服务。
 	srv := httpapi.New(httpapi.Deps{
-		Maintenance: maintenanceSync,
-		Statistics:  statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes),
-		Cfg:         cfg,
-		Store:       st,
-		Cache:       cache,
-		Pub:         publisher,
-		Logger:      logger,
-		AdminUI:     adminui.Handler(),
+		Maintenance:    maintenanceSync,
+		Statistics:     statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes),
+		Drops:          dropsSvc,
+		Templates:      templateProxy,
+		TemplateIngest: templateIngest,
+		Cfg:            cfg,
+		Store:          st,
+		Cache:          cache,
+		Pub:            publisher,
+		Logger:         logger,
+		AdminUI:        adminui.Handler(),
 	})
 	srv.Run(ctx)
 	defer srv.Close()

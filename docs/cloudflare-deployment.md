@@ -24,6 +24,8 @@ Configuration Rule 仅匹配这两个主机，设置 `ssl: strict`，保留其�
 
 其余请求由 C 处理。A 的 `STATISTICS_PUBLIC_URL`、B 的 `STATISTICS_URL`、C 的两个 Worker 发布回读 URL 均使用 `api.azurpilot.com`。
 
+模板 Worker 使用独立的自定义域名 `templates.azurpilot.com`，不使用 `*.workers.dev`（该网络下被 SNI 阻断）。发布流程、签名与 unknown 模板闭环见 [template-server.md](template-server.md)。
+
 ## 验证与交接
 
 切换前确认源站证书、SNI 和双栈监听；切换后检查 `/healthz`、`/admin/`、区服/维护/统计查询及两个 Worker JSON。确认 B 仍在线，结果上报和回执没有积压。

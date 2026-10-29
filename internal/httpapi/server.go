@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"ap-cloud-server/internal/config"
+	"ap-cloud-server/internal/drops"
 	"ap-cloud-server/internal/maintenance"
 	"ap-cloud-server/internal/publish"
 	"ap-cloud-server/internal/statistics"
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
+	"ap-cloud-server/internal/templateproxy"
 )
 
 // Backend 是 HTTP 层需要的存储接口；*store.Store 天然满足，
@@ -42,11 +44,17 @@ type MaintenanceSync interface {
 type Deps struct {
 	Maintenance MaintenanceSync
 	Statistics  *statistics.Service
-	Cfg         config.Config
-	Store       Backend
-	Cache       *statuscache.Cache
-	Pub         *publish.Publisher
-	Logger      *slog.Logger
+	// Drops 为 nil 时 v3 上报与查询接口返回 503。
+	Drops *drops.Service
+	// Templates 为 nil 时模板读取接口返回 503。
+	Templates *templateproxy.Proxy
+	// TemplateIngest 为 nil 时未知模板上传返回 503。
+	TemplateIngest *templateproxy.Ingest
+	Cfg            config.Config
+	Store          Backend
+	Cache          *statuscache.Cache
+	Pub            *publish.Publisher
+	Logger         *slog.Logger
 	// AdminUI 是管理后台前端处理器（internal/adminui.Handler() 提供）；nil 时退回 404。
 	AdminUI http.Handler
 	// Now 可注入时钟，测试用；nil 时使用 time.Now。
@@ -120,6 +128,16 @@ func New(deps Deps) *Server {
 	if deps.Statistics != nil {
 		deps.Statistics.Register(mux)
 	}
+	// v3 委托/科研统计。
+	mux.HandleFunc("POST /api/v3/post/drops", s.handleV3Drops)
+	mux.HandleFunc("POST /api/v3/post/templates/unknown", s.handleV3UnknownTemplate)
+	mux.HandleFunc("GET /api/v3/get/commission", s.handleV3Commission)
+	mux.HandleFunc("GET /api/v3/get/commission/options", s.handleV3CommissionOptions)
+	mux.HandleFunc("GET /api/v3/get/research", s.handleV3Research)
+	mux.HandleFunc("GET /api/v3/get/research/options", s.handleV3ResearchOptions)
+	mux.HandleFunc("GET /api/v3/get/templates/manifest", s.handleV3TemplateManifest)
+	mux.HandleFunc("GET /api/v3/get/templates/delta", s.handleV3TemplateDelta)
+	mux.HandleFunc("GET /api/v3/get/mappings", s.handleV3TemplateMappings)
 	// v1 管理接口（运维用，非客户端契约）。
 	mux.HandleFunc("/api/v1/admin/announcement", s.adminAuth(s.handleAdminAnnouncement))
 	mux.HandleFunc("/api/v1/admin/update-policy", s.adminAuth(s.handleAdminUpdatePolicy))

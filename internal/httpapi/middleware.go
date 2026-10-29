@@ -173,6 +173,8 @@ func (s *Server) rateLimitMiddleware(next http.Handler) http.Handler {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/internal/"):
 			scope = "worker"
+		case strings.HasPrefix(r.URL.Path, "/api/v3/post/"):
+			scope = "v3"
 		case r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") || strings.HasPrefix(r.URL.Path, "/api/v1/admin/"):
 			scope = "admin"
 		}
@@ -197,6 +199,9 @@ func timeoutMiddleware(d, publishTimeout time.Duration, next http.Handler) http.
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/v1/admin/statistics/preview/") {
 			timeout = 50 * time.Second
+		}
+		if r.URL.Path == "/api/v3/post/drops" || r.URL.Path == "/api/v3/post/templates/unknown" {
+			timeout = 30 * time.Second
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()

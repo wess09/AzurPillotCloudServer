@@ -77,6 +77,20 @@ type Config struct {
 	MaintenanceSyncInterval time.Duration
 	MaintenanceSyncTimeout  time.Duration
 
+	// V3Enabled 开启委托/科研 v3 上报、聚合与查询。
+	V3Enabled bool
+	// AggInterval 为 v3 小时聚合任务的运行间隔。
+	AggInterval time.Duration
+	// TemplatePublicBase 为模板 manifest/delta/mappings 的上游地址。
+	// 为空时模板读取接口返回 503。
+	TemplatePublicBase string
+	// TemplateProxyCache 为模板读取缓存时长。
+	TemplateProxyCache time.Duration
+	// TemplateIngestURL 为模板服务器未知模板上传端点；为空时上传接口返回 503。
+	TemplateIngestURL string
+	// TemplateIngestToken 是调用模板服务器的 Bearer 凭据。
+	TemplateIngestToken string
+
 	Cloudflare Cloudflare
 }
 
@@ -107,6 +121,12 @@ func Load() (Config, error) {
 		MaintenanceSyncEnabled:  env("MAINTENANCE_SYNC_ENABLED", "true") != "false",
 		MaintenanceSyncInterval: envDuration("MAINTENANCE_SYNC_INTERVAL", 10*time.Minute),
 		MaintenanceSyncTimeout:  envDuration("MAINTENANCE_SYNC_TIMEOUT", 12*time.Second),
+		V3Enabled:               env("V3_ENABLED", "true") != "false",
+		AggInterval:             envDuration("AGG_INTERVAL", time.Hour),
+		TemplatePublicBase:      env("TEMPLATE_PUBLIC_BASE", "https://templates.azurpilot.com"),
+		TemplateProxyCache:      envDuration("TEMPLATE_PROXY_CACHE", 60*time.Second),
+		TemplateIngestURL:       env("TEMPLATE_INGEST_URL", ""),
+		TemplateIngestToken:     env("TEMPLATE_INGEST_TOKEN", ""),
 	}
 	cfg.Cloudflare = Cloudflare{
 		AccountID:       env("CF_ACCOUNT_ID", ""),
@@ -133,6 +153,12 @@ func Load() (Config, error) {
 	}
 	if cfg.MaintenanceSyncInterval < time.Minute || cfg.MaintenanceSyncTimeout <= 0 || cfg.MaintenanceSyncTimeout > 12*time.Second {
 		return cfg, fmt.Errorf("维护同步间隔至少 1m，超时需在 0–12s 之间")
+	}
+	if cfg.AggInterval < time.Minute {
+		return cfg, fmt.Errorf("AGG_INTERVAL 至少为 1m")
+	}
+	if cfg.TemplateProxyCache <= 0 || cfg.TemplateProxyCache > time.Hour {
+		return cfg, fmt.Errorf("TEMPLATE_PROXY_CACHE 需在 1s–1h 之间")
 	}
 	return cfg, nil
 }

@@ -1,0 +1,58 @@
+# 模板服务器独立部署：PostgreSQL + template-server（内置 Node/Wrangler）。
+# 用法：cp deploy/template.env.example deploy/template.env
+#       docker compose -f deploy/template-compose.yml --env-file deploy/template.env up -d --build
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TEMPLATE_DB_NAME:-templates}
+      POSTGRES_USER: ${TEMPLATE_DB_USER:-templates}
+      POSTGRES_PASSWORD: ${TEMPLATE_DB_PASSWORD:?请设置 TEMPLATE_DB_PASSWORD}
+    volumes:
+      - template-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEMPLATE_DB_USER:-templates} -d ${TEMPLATE_DB_NAME:-templates}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  templates:
+    build:
+      context: ..
+      dockerfile: deploy/template-server.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LISTEN_ADDR: ${TEMPLATE_LISTEN_ADDR:-:8090}
+      HOME: /tmp
+      DATABASE_URL: postgres://${TEMPLATE_DB_USER:-templates}:${TEMPLATE_DB_PASSWORD}@postgres:5432/${TEMPLATE_DB_NAME:-templates}?sslmode=disable
+      ADMIN_TOKEN: ${TEMPLATE_ADMIN_TOKEN:?请设置 TEMPLATE_ADMIN_TOKEN}
+      TEMPLATE_INGEST_TOKEN: ${TEMPLATE_INGEST_TOKEN:?请设置 TEMPLATE_INGEST_TOKEN}
+      TEMPLATE_SIGNING_KEY: ${TEMPLATE_SIGNING_KEY:?请设置 TEMPLATE_SIGNING_KEY}
+      TEMPLATE_PUBLISH_DIR: /srv/templates-public
+      TEMPLATE_PUBLIC_BASE: ${TEMPLATE_PUBLIC_BASE:-https://templates.azurpilot.com}
+      CF_DEPLOY: ${CF_DEPLOY:-false}
+      CF_WORKER_NAME: ${CF_WORKER_NAME:-azurpilot-templates}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      # 镜像内已安装 wrangler；置空表示直接调用 PATH 中的 wrangler。
+      TEMPLATE_WRANGLER_IMAGE: ""
+      TEMPLATE_SELF_CHECK: ${TEMPLATE_SELF_CHECK:-true}
+      TEMPLATE_SELF_CHECK_ATTEMPTS: ${TEMPLATE_SELF_CHECK_ATTEMPTS:-20}
+      TEMPLATE_SELF_CHECK_DELAY: ${TEMPLATE_SELF_CHECK_DELAY:-5s}
+      TEMPLATE_EXPIRES_DAYS: ${TEMPLATE_EXPIRES_DAYS:-30}
+    ports:
+      # 管理/上传接口需要主 API 与运维访问；请用防火墙限制来源。
+      - "${TEMPLATE_PORT:-8090}:8090"
+    volumes:
+      - template-public:/srv/templates-public
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  template-pgdata:
+  template-public:
