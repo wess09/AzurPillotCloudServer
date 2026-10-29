@@ -4,6 +4,8 @@ dist/
 *.log
 web/node_modules/
 internal/adminui/dist/
+template-web/node_modules/
+internal/templateserver/webui/dist/
 # 模板服务器部署凭据（含数据库密码与 Cloudflare token）。
 deploy/template.env
 # 本地探测/排障脚本与缓存。

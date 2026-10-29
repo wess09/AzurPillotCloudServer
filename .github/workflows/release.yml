@@ -41,9 +41,13 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            template-web/package-lock.json
       - run: npm --prefix web ci
       - run: npm --prefix web run build
+      - run: npm --prefix template-web ci
+      - run: npm --prefix template-web run build
       - run: go vet ./...
       - run: go test -race -count=1 ./...
 

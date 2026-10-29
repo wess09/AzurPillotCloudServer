@@ -1,4 +1,4 @@
-.PHONY: build test race vet lint run web-install web-dev web-build docker-up docker-down clean
+.PHONY: build test race vet lint run web-install web-dev web-build template-web-install template-web-dev template-web-build template-server docker-up docker-down clean
 
 build:
 	go build -o bin/ap-cloud-server$(shell go env GOEXE) ./cmd/server
@@ -32,8 +32,22 @@ web-dev:
 web-build:
 	cd web && npm run build
 
-# 一键构建包含管理后台的完整二进制
-all: web-build build
+template-web-install:
+	cd template-web && npm install
+
+template-web-dev:
+	cd template-web && npm run dev
+
+# 构建模板管理台并输出到 internal/templateserver/webui/dist
+template-web-build:
+	cd template-web && npm run build
+
+# 模板服务器二进制（需先 template-web-build）
+template-server:
+	go build -o bin/ap-template-server$(shell go env GOEXE) ./cmd/templateserver
+
+# 一键构建包含两个管理界面的完整二进制
+all: web-build template-web-build build
 
 docker-up:
 	docker compose up -d --build

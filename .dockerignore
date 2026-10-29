@@ -12,4 +12,6 @@ docker-compose.yml
 .env.example
 workers
 web/node_modules
+template-web/node_modules
 internal/adminui/dist
+internal/templateserver/webui/dist

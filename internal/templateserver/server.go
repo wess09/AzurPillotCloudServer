@@ -82,8 +82,13 @@ func NewServer(cfg Config, db *gorm.DB, signer *Signer, logger *slog.Logger) (*S
 	mux.HandleFunc("GET /icons/{name}", s.handleIcon)
 	// 客户端未知模板上传（由主 API 携带 TEMPLATE_INGEST_TOKEN 转发）。
 	mux.HandleFunc("POST /api/v3/post/templates/unknown", s.handleIngestUnknown)
+	mux.HandleFunc("GET /", s.handleIndex)
+	mux.HandleFunc("GET /admin/", s.handleWebUI)
+	mux.HandleFunc("GET /api/v1/status", s.admin(s.handleStatus))
 	mux.HandleFunc("GET /api/v1/templates", s.admin(s.handleListTemplates))
 	mux.HandleFunc("POST /api/v1/templates", s.admin(s.handleUpsertTemplate))
+	mux.HandleFunc("PATCH /api/v1/templates/{key}", s.admin(s.handleUpdateTemplate))
+	mux.HandleFunc("POST /api/v1/templates/{key}/rename", s.admin(s.handleRenameTemplate))
 	mux.HandleFunc("DELETE /api/v1/templates/{key}", s.admin(s.handleDeleteTemplate))
 	mux.HandleFunc("POST /api/v1/templates/publish", s.admin(s.handlePublish))
 	mux.HandleFunc("POST /api/v1/templates/import", s.admin(s.handleImportCatalog))
@@ -352,6 +357,177 @@ func validateTemplateInput(in templateInput) error {
 		return fmt.Errorf("image_base64 不能为空")
 	}
 	return nil
+}
+
+// handleUpdateTemplate 只修改元数据，不重传图标；用于改名、标签、场景与启停。
+func (s *Server) handleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	if !keyRE.MatchString(key) {
+		writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "无效的 key", map[string]any{"field": "key"})
+		return
+	}
+	var in struct {
+		Name    *string `json:"name"`
+		Item    *string `json:"item"`
+		Tag     *string `json:"tag"`
+		Scene   *string `json:"scene"`
+		Kind    *string `json:"kind"`
+		Enabled *bool   `json:"enabled"`
+	}
+	if err := decodeBody(w, r, 8<<10, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "INVALID_JSON", "请求体不是合法的 JSON", nil)
+		return
+	}
+	updates := map[string]any{"updated_at": s.now()}
+	if in.Name != nil {
+		v := strings.TrimSpace(*in.Name)
+		if v == "" || len(v) > 128 {
+			writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "name 不能为空且不超过 128 字符", map[string]any{"field": "name"})
+			return
+		}
+		updates["name"] = v
+	}
+	if in.Item != nil {
+		v := strings.TrimSpace(*in.Item)
+		if v == "" || len(v) > 128 {
+			writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "item 不能为空且不超过 128 字符", map[string]any{"field": "item"})
+			return
+		}
+		updates["item"] = v
+	}
+	if in.Tag != nil {
+		v := strings.TrimSpace(*in.Tag)
+		if len(v) > 32 {
+			writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "tag 不超过 32 字符", map[string]any{"field": "tag"})
+			return
+		}
+		updates["tag"] = v
+	}
+	if in.Scene != nil {
+		switch *in.Scene {
+		case "all", v3db.SceneCommission, v3db.SceneResearch:
+		default:
+			writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "scene 必须为 all、commission 或 research", map[string]any{"field": "scene"})
+			return
+		}
+		updates["scene_context"] = *in.Scene
+	}
+	if in.Kind != nil {
+		switch *in.Kind {
+		case v3db.KindFormal, v3db.KindTemporary:
+		default:
+			writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "kind 必须为 formal 或 temporary", map[string]any{"field": "kind"})
+			return
+		}
+		updates["kind"] = *in.Kind
+	}
+	if in.Enabled != nil {
+		updates["enabled"] = *in.Enabled
+	}
+	if len(updates) == 1 {
+		writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "没有需要更新的字段", nil)
+		return
+	}
+	res := s.db.WithContext(r.Context()).Model(&v3db.Template{}).Where("key = ?", key).Updates(updates)
+	if res.Error != nil {
+		s.logger.Error("模板更新失败", "key", key, "err", res.Error)
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	if res.RowsAffected == 0 {
+		writeErr(w, http.StatusNotFound, "NOT_FOUND", "模板不存在", nil)
+		return
+	}
+	s.invalidateKnown()
+	var saved v3db.Template
+	if err := s.db.WithContext(r.Context()).Where("key = ?", key).Take(&saved).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"schema_version": 3, "template": toView(saved)})
+}
+
+// handleRenameTemplate 修改模板 ID（key），发布后新 key 会进入 manifest。
+func (s *Server) handleRenameTemplate(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	if !keyRE.MatchString(key) {
+		writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "无效的 key", map[string]any{"field": "key"})
+		return
+	}
+	var in struct {
+		NewKey string `json:"new_key"`
+	}
+	if err := decodeBody(w, r, 4<<10, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "INVALID_JSON", "请求体不是合法的 JSON", nil)
+		return
+	}
+	newKey := strings.TrimSpace(in.NewKey)
+	if !keyRE.MatchString(newKey) {
+		writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "new_key 必须是 1–128 位字母、数字、下划线、点或连字符", map[string]any{"field": "new_key"})
+		return
+	}
+	if newKey == key {
+		writeErr(w, http.StatusBadRequest, "VALIDATION_ERROR", "new_key 与当前 key 相同", map[string]any{"field": "new_key"})
+		return
+	}
+	var dup v3db.Template
+	err := s.db.WithContext(r.Context()).Select("key").Where("key = ?", newKey).Take(&dup).Error
+	if err == nil {
+		writeErr(w, http.StatusConflict, "TEMPLATE_EXISTS", "目标 key 已存在", map[string]any{"existing_key": dup.Key})
+		return
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	res := s.db.WithContext(r.Context()).Model(&v3db.Template{}).
+		Where("key = ?", key).
+		Updates(map[string]any{"key": newKey, "updated_at": s.now()})
+	if res.Error != nil {
+		s.logger.Error("模板改名失败", "key", key, "new_key", newKey, "err", res.Error)
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	if res.RowsAffected == 0 {
+		writeErr(w, http.StatusNotFound, "NOT_FOUND", "模板不存在", nil)
+		return
+	}
+	s.invalidateKnown()
+	var saved v3db.Template
+	if err := s.db.WithContext(r.Context()).Where("key = ?", newKey).Take(&saved).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"schema_version": 3, "old_key": key, "template": toView(saved)})
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	var state v3db.TemplateState
+	if err := s.db.WithContext(r.Context()).Where("id = ?", 1).Take(&state).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	var enabled int64
+	if err := s.db.WithContext(r.Context()).Model(&v3db.Template{}).
+		Where("enabled = ?", true).Count(&enabled).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	var pending int64
+	if err := s.db.WithContext(r.Context()).Model(&v3db.UnknownTemplate{}).
+		Where("status = ?", unknownPending).Count(&pending).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "INTERNAL_ERROR", "内部错误", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"schema_version":   3,
+		"revision":         state.CurrentRevision,
+		"public_base":      state.PublicBase,
+		"worker_name":      s.cfg.WorkerName,
+		"cf_deploy":        s.cfg.CFDeploy,
+		"enabled":          enabled,
+		"pending_clusters": pending,
+	})
 }
 
 func (s *Server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request) {

@@ -25,14 +25,14 @@ jobs:
           cache: true
       - uses: actions/download-artifact@v4
         with:
-          name: adminui-dist
-          path: internal/adminui/dist
+          name: web-dist
+          path: internal
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
 
   web:
-    name: 管理后台前端
+    name: 前端（管理后台 + 模板管理台）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,17 +40,23 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            template-web/package-lock.json
       - name: 安装依赖
-        working-directory: web
-        run: npm ci
+        run: |
+          npm --prefix web ci
+          npm --prefix template-web ci
       - name: 类型检查与构建
-        working-directory: web
-        run: npm run build
+        run: |
+          npm --prefix web run build
+          npm --prefix template-web run build
       - uses: actions/upload-artifact@v4
         with:
-          name: adminui-dist
-          path: internal/adminui/dist
+          name: web-dist
+          path: |
+            internal/adminui/dist
+            internal/templateserver/webui/dist
           retention-days: 3
 
   test:
@@ -87,8 +93,8 @@ jobs:
           cache: true
       - uses: actions/download-artifact@v4
         with:
-          name: adminui-dist
-          path: internal/adminui/dist
+          name: web-dist
+          path: internal
       - name: go vet
         run: go vet ./...
       - name: go test（含竞态检测与协程泄露检查）
@@ -120,8 +126,8 @@ jobs:
           cache: true
       - uses: actions/download-artifact@v4
         with:
-          name: adminui-dist
-          path: internal/adminui/dist
+          name: web-dist
+          path: internal
       - name: 交叉编译
         env:
           GOOS: ${{ matrix.goos }}

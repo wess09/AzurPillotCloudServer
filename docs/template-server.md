@@ -15,6 +15,15 @@
 管理员 ──/api/v1/templates/*───────────────────► 模板服务器（ADMIN_TOKEN）
 ```
 
+## 域名分工
+
+| 域名 | 指向 | 用途 |
+|---|---|---|
+| `templates-api.azurpilot.com` | 模板服务器 `:8090`（经 CDN 回源） | 管理台 `/admin/`、管理 API、主 API 转发的未知模板上传 |
+| `templates.azurpilot.com` | Cloudflare Worker | 客户端读取 manifest/delta/mappings 与图标 |
+
+两者都是必需或可替代的：管理面走 `templates-api`，分发面走 Worker；Worker 未就绪时主 API 的模板代理可临时指回 `templates-api`（模板服务器自身提供同样的公开读取路径）。
+
 ## 域名硬约束
 
 Worker **必须**绑定 `templates.azurpilot.com`（或其它 `azurpilot.com` 子域）自定义域名：
@@ -56,14 +65,30 @@ Worker **必须**绑定 `templates.azurpilot.com`（或其它 `azurpilot.com` �
 
 `deploy/template-compose.yml` 使用内置 Node + Wrangler 的镜像，并把 `TEMPLATE_WRANGLER_IMAGE` 置空，因此不需要挂载 Docker socket。
 
+## 管理台（WebUI）
+
+模板服务器在 `/admin/` 提供内嵌的 React + Ant Design 管理台（源码在 `template-web/`，构建产物嵌入二进制）：
+
+- 登录：输入 `ADMIN_TOKEN`，令牌存于浏览器 localStorage，随请求以 Bearer 发送；令牌错误或过期会退回登录页。
+- 模板：搜索/筛选、上传（自动缩放为 49×49 PNG）、编辑元数据、**修改模板 ID**、启用/禁用。
+- 未知模板：按状态查看聚类、映射（可同时注册为模板）、合并、拒绝。
+- 发布记录：revision、部署状态、manifest 哈希与 Worker 地址。
+- 委托目录：粘贴 `commission_names.json` 导入。
+- 任何修改都会标记「有修改未发布」，点右上角「发布分发」生成新 revision；发布成功才推送到 Cloudflare 与本地镜像。
+
+页面本身不含凭据，所有操作走下方需要 `Authorization` 的管理 API；`ADMIN_TOKEN` 为空时管理台可打开但接口返回 503。
+
 ## 管理 API
 
 除公开读取接口外均需 `Authorization: Bearer <ADMIN_TOKEN>`。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
+| `GET` | `/api/v1/status` | 当前 revision、启用模板数、待处理聚类、分发地址 |
 | `GET` | `/api/v1/templates` | 列表，支持 `enabled/scene/item/limit` |
 | `POST` | `/api/v1/templates` | 新建/更新；body `{key?,name,item,tag,scene,kind,image_base64,allow_duplicate?}` |
+| `PATCH` | `/api/v1/templates/{key}` | 只改元数据/启停：`{name?,item?,tag?,scene?,kind?,enabled?}` |
+| `POST` | `/api/v1/templates/{key}/rename` | 修改模板 ID：`{new_key}`；目标已存在返回 409 |
 | `DELETE` | `/api/v1/templates/{key}` | 禁用（下一次发布进入墓碑） |
 | `POST` | `/api/v1/templates/publish` | 生成 revision、签名并部署；body `{note}` |
 | `POST` | `/api/v1/templates/import` | 导入 `commission_catalog` |
@@ -152,6 +177,13 @@ Worker 路由：
 - 其余路径走静态资源，支持 CORS 与 `OPTIONS`
 
 ## 部署
+
+构建包含管理台的二进制或镜像（`cmd/templateserver` 通过 `go:embed` 内嵌 `template-web` 产物，缺少产物时用 `-tags noadminui` 构建）：
+
+```bash
+npm --prefix template-web ci && npm --prefix template-web run build   # 输出到 internal/templateserver/webui/dist
+make template-server                                                  # 或 docker build -f deploy/template-server.Dockerfile .
+```
 
 1. 构建 Wrangler 镜像（可选，仅 docker 模式需要）：
    ```bash
