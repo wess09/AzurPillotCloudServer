@@ -144,7 +144,7 @@ type Publisher struct {
 	CheckAttempts int
 	CheckDelay    time.Duration
 	Logger        *slog.Logger
-	runCommand    func(ctx context.Context, env []string, name string, args ...string) ([]byte, error)
+	runCommand    func(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error)
 }
 
 func (p *Publisher) Deploy(ctx context.Context, plan *ReleasePlan) (string, error) {
@@ -209,15 +209,20 @@ func (p *Publisher) deployCloudflare(ctx context.Context, plan *ReleasePlan) (st
 		"wrangler", "deploy",
 	}
 	// 镜像名为空时直接调用 PATH 中的 wrangler（模板服务器容器内置 Node + Wrangler）。
+	// 此时必须在临时目录内执行，wrangler 才会读取同目录的 wrangler.jsonc 与 dist/。
 	if strings.TrimSpace(p.WranglerImage) == "" {
 		bin = "wrangler"
 		args = []string{"deploy"}
+	}
+	dir := ""
+	if bin == "wrangler" {
+		dir = work
 	}
 	run := p.runCommand
 	if run == nil {
 		run = runExternal
 	}
-	out, err := run(ctx, env, bin, args...)
+	out, err := run(ctx, dir, env, bin, args...)
 	if err != nil {
 		return "", fmt.Errorf("wrangler deploy 失败: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -331,8 +336,9 @@ func publicHost(base string) string {
 	return u.Host
 }
 
-func runExternal(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
+func runExternal(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
 	cmd.Env = env
 	return cmd.CombinedOutput()
 }
