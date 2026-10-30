@@ -112,7 +112,7 @@ func run() error {
 	// 5. HTTP 服务。
 	srv := httpapi.New(httpapi.Deps{
 		Maintenance: maintenanceSync,
-		Statistics:  statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes),
+		Statistics:  statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithInsecureWorker(cfg.AllowInsecureRecognizer).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes).WithSigningKey(cfg.TemplateSigningKey),
 		Cfg:         cfg,
 		Store:       st,
 		Cache:       cache,

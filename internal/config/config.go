@@ -5,6 +5,9 @@
 package config
 
 import (
+	"bytes"
+	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -39,12 +42,14 @@ type Config struct {
 	// AdminToken 为管理接口的 Bearer Token；为空时管理接口整体关闭。
 	AdminToken string
 	// StatisticsToken authenticates B's result, candidate and control requests.
-	StatisticsToken      string
-	RecognizerURL        string
-	WorkerToken          string
-	StatisticsFileBytes  int64
-	StatisticsGroupBytes int64
-	LegacyUploadURL      string
+	StatisticsToken         string
+	TemplateSigningKey      ed25519.PrivateKey
+	RecognizerURL           string
+	AllowInsecureRecognizer bool
+	WorkerToken             string
+	StatisticsFileBytes     int64
+	StatisticsGroupBytes    int64
+	LegacyUploadURL         string
 	// LogLevel 为 slog 级别：debug、info、warn、error。
 	LogLevel string
 
@@ -120,6 +125,29 @@ func Load() (Config, error) {
 
 	if strings.TrimSpace(cfg.DatabaseURL) == "" {
 		return cfg, fmt.Errorf("DATABASE_URL 不能为空")
+	}
+	cfg.AllowInsecureRecognizer = strings.EqualFold(env("ALLOW_INSECURE_RECOGNIZER", "false"), "true")
+	if cfg.RecognizerURL != "" {
+		if e := ValidateRecognizerURL(cfg.RecognizerURL, cfg.AllowInsecureRecognizer); e != nil {
+			return cfg, e
+		}
+	}
+	if encoded := env("TEMPLATE_SIGNING_KEY", ""); encoded != "" {
+		key, e := base64.StdEncoding.DecodeString(encoded)
+		if e != nil {
+			return cfg, fmt.Errorf("TEMPLATE_SIGNING_KEY must be base64 Ed25519 key")
+		}
+		switch len(key) {
+		case ed25519.SeedSize:
+			cfg.TemplateSigningKey = ed25519.NewKeyFromSeed(key)
+		case ed25519.PrivateKeySize:
+			cfg.TemplateSigningKey = ed25519.NewKeyFromSeed(key[:ed25519.SeedSize])
+			if !bytes.Equal(cfg.TemplateSigningKey, key) {
+				return cfg, fmt.Errorf("inconsistent Ed25519 private key")
+			}
+		default:
+			return cfg, fmt.Errorf("TEMPLATE_SIGNING_KEY must be a 32-byte seed or 64-byte private key")
+		}
 	}
 	if cfg.RateLimitRPS <= 0 || cfg.RateLimitBurst <= 0 {
 		return cfg, fmt.Errorf("RATE_LIMIT_RPS 和 RATE_LIMIT_BURST 必须为正数")

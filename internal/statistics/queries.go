@@ -35,7 +35,7 @@ func collect(rows pgx.Rows) ([]map[string]any, error) {
 func (s *Service) summary(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	for k, v := range q {
-		if len(v) != 1 || !strings.Contains("|from|to|server|scene|series|project|focus_series|timezone|", "|"+k+"|") {
+		if len(v) != 1 || !strings.Contains("|from|to|server|scene|series|project|focus_series|timezone|comm|status|", "|"+k+"|") {
 			fail(w, 400, "VALIDATION_ERROR", "无效筛选参数")
 			return
 		}
@@ -96,13 +96,25 @@ func (s *Service) summary(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(r.URL.Path, "/research") {
 		kind = "research"
 	}
-	args := []any{kind, from, to, q.Get("server"), q.Get("scene"), series, q.Get("project"), focus}
+	commissionStatus := -1
+	if q.Get("status") != "" {
+		commissionStatus, e = strconv.Atoi(q.Get("status"))
+		if e != nil || commissionStatus < 0 || commissionStatus > 1 {
+			fail(w, 400, "VALIDATION_ERROR", "无效委托状态")
+			return
+		}
+	}
+	if len(q.Get("comm")) > 128 {
+		fail(w, 400, "VALIDATION_ERROR", "无效委托标识")
+		return
+	}
+	args := []any{kind, from, to, q.Get("server"), q.Get("scene"), series, q.Get("project"), focus, q.Get("comm"), commissionStatus}
 	// Keep discovery independent of the chosen dimension. Project filtering must
 	// not change the denominator, and different series/focuses never share one.
 	filtered := `WITH scope AS (
- SELECT * FROM stat_events WHERE kind=$1 AND occurred_at >=$2 AND occurred_at<$3 AND ($4='' OR server=$4)
+ SELECT *,COALESCE(comm,'') AS comm_key,COALESCE(commission_status,-1) AS status_key FROM stat_effective_events WHERE kind=$1 AND occurred_at >=$2 AND occurred_at<$3 AND ($4='' OR server=$4)
 ), base AS (
- SELECT * FROM scope WHERE ($5='' OR scene=$5) AND ($6::int=0 OR series=$6) AND ($8::int=-1 OR focus_series=$8)
+ SELECT * FROM scope WHERE ($5='' OR scene=$5) AND ($6::int=0 OR series=$6) AND ($8::int=-1 OR focus_series=$8) AND ($9='' OR comm_key=$9) AND ($10::int=-1 OR status_key=$10)
 ), filtered AS (SELECT * FROM base WHERE ($7='' OR project=$7)) `
 	rowLimit := fmt.Sprintf(" LIMIT %d", maxSummaryRows+1)
 	tx, e := s.Pool.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -135,16 +147,16 @@ func (s *Service) summary(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.HasSuffix(r.URL.Path, "/time-slots") {
 		rows, err := tx.Query(r.Context(), filtered+`,bucketed AS (
- SELECT *, (extract(hour FROM occurred_at AT TIME ZONE $9)*2+floor(extract(minute FROM occurred_at AT TIME ZONE $9)/30))::int AS slot FROM base
+ SELECT *, (extract(hour FROM occurred_at AT TIME ZONE $11)*2+floor(extract(minute FROM occurred_at AT TIME ZONE $11)/30))::int AS slot FROM base
 ), totals AS (
  SELECT slot,series,focus_series,count(*) FILTER(WHERE event_type='refresh') AS appearances FROM bucketed GROUP BY slot,series,focus_series
 )
 SELECT b.slot AS slot_index,to_char(make_time(b.slot/2,(b.slot%2)*30,0),'HH24:MI') AS slot_start,
- b.series,b.focus_series,b.project,b.scene,
+ b.series,b.focus_series,b.project,b.scene,b.comm_key AS comm,NULLIF(b.status_key,-1) AS status,
  count(*) FILTER(WHERE b.event_type='refresh') AS appearances,count(*) FILTER(WHERE b.event_type<>'refresh') AS samples,
  t.appearances AS total_appearances,COALESCE((count(*) FILTER(WHERE b.event_type='refresh'))::float8/NULLIF(t.appearances,0),0) AS appearance_rate
 FROM bucketed b JOIN totals t USING(slot,series,focus_series) WHERE ($7='' OR b.project=$7)
-GROUP BY b.slot,b.series,b.focus_series,b.project,b.scene,t.appearances ORDER BY b.slot,b.series,b.focus_series,b.project,b.scene`+rowLimit, append(args, zone)...)
+GROUP BY b.slot,b.series,b.focus_series,b.project,b.scene,b.comm_key,b.status_key,t.appearances ORDER BY b.slot,b.series,b.focus_series,b.project,b.scene,b.comm_key,b.status_key`+rowLimit, append(args, zone)...)
 		if err != nil {
 			internal(w, err)
 			return
@@ -168,12 +180,12 @@ GROUP BY b.slot,b.series,b.focus_series,b.project,b.scene,t.appearances ORDER BY
 	rows, e := tx.Query(r.Context(), filtered+`, totals AS (
  SELECT series,focus_series,count(*) FILTER(WHERE event_type='refresh') AS appearances FROM base GROUP BY series,focus_series
 )
-SELECT e.series,e.focus_series,e.project,e.scene,count(*) FILTER(WHERE e.event_type='refresh') AS appearances,
+SELECT e.series,e.focus_series,e.project,e.scene,e.comm_key AS comm,NULLIF(e.status_key,-1) AS status,count(*) FILTER(WHERE e.event_type='refresh') AS appearances,
  count(*) FILTER(WHERE e.event_type<>'refresh') AS samples,
  COALESCE(sum(e.duration_seconds) FILTER(WHERE e.event_type<>'refresh'),0)::bigint AS duration_seconds,
  t.appearances AS total_appearances,COALESCE((count(*) FILTER(WHERE e.event_type='refresh'))::float8/NULLIF(t.appearances,0),0) AS appearance_rate
 FROM filtered e JOIN totals t USING(series,focus_series)
-GROUP BY e.series,e.focus_series,e.project,e.scene,t.appearances ORDER BY e.series,e.focus_series,e.project,e.scene`+rowLimit, args...)
+GROUP BY e.series,e.focus_series,e.project,e.scene,e.comm_key,e.status_key,t.appearances ORDER BY e.series,e.focus_series,e.project,e.scene,e.comm_key,e.status_key`+rowLimit, args...)
 	if e != nil {
 		internal(w, e)
 		return
@@ -188,16 +200,20 @@ GROUP BY e.series,e.focus_series,e.project,e.scene,t.appearances ORDER BY e.seri
 		return
 	}
 	rows, e = tx.Query(r.Context(), filtered+`, denominators AS (
- SELECT series,focus_series,project,scene,count(*) AS samples,sum(duration_seconds) AS seconds,
- count(*) FILTER(WHERE duration_seconds>0) AS timed_samples FROM filtered WHERE event_type<>'refresh' GROUP BY series,focus_series,project,scene
+ SELECT series,focus_series,project,scene,comm_key,status_key,count(*) AS samples,sum(duration_seconds) AS seconds,
+ count(*) FILTER(WHERE duration_seconds>0) AS timed_samples FROM filtered WHERE event_type<>'refresh' GROUP BY series,focus_series,project,scene,comm_key,status_key
+), reward_rows AS MATERIALIZED (
+ SELECT e.*,i.item,i.tag,i.amount FROM filtered e JOIN stat_effective_items i ON i.sha256=e.sha256 AND i.ordinal=e.ordinal
+ WHERE e.event_type<>'refresh' AND i.item<>'PlaceHolder'
 )
-SELECT e.series,e.focus_series,e.project,e.scene,i.item,i.tag,count(*) AS occurrences,sum(i.amount)::bigint AS amount,
- d.samples,d.timed_samples,round(sum(i.amount)::numeric/d.samples,6)::float8 AS average_per_sample,
+SELECT e.series,e.focus_series,e.project,e.scene,e.comm_key AS comm,NULLIF(e.status_key,-1) AS status,e.item,e.tag,count(*) AS occurrences,sum(e.amount)::bigint AS amount,
+ d.samples,d.timed_samples,round(sum(e.amount)::numeric/d.samples,6)::float8 AS average_per_sample,
  round(count(*)::numeric/d.samples,6)::float8 AS drop_rate,
- CASE WHEN d.seconds>0 THEN round(COALESCE(sum(i.amount) FILTER(WHERE e.duration_seconds>0),0)::numeric*3600/d.seconds,6)::float8 ELSE NULL END AS amount_per_hour
-FROM filtered e JOIN stat_items i ON i.sha256=e.sha256 AND i.ordinal=e.ordinal JOIN denominators d USING(series,focus_series,project,scene)
-WHERE e.event_type<>'refresh' GROUP BY e.series,e.focus_series,e.project,e.scene,i.item,i.tag,d.samples,d.seconds,d.timed_samples
-ORDER BY e.series,e.focus_series,e.project,e.scene,i.item,i.tag`+rowLimit, args...)
+ CASE WHEN d.seconds>0 THEN round(COALESCE(sum(e.amount) FILTER(WHERE e.duration_seconds>0),0)::numeric*3600/d.seconds,6)::float8 ELSE NULL END AS amount_per_hour
+FROM reward_rows e JOIN denominators d USING(series,focus_series,project,scene,comm_key,status_key)
+WHERE e.status_key<0 OR e.scene NOT LIKE 'commission%' OR d.samples>50
+GROUP BY e.series,e.focus_series,e.project,e.scene,e.comm_key,e.status_key,e.item,e.tag,d.samples,d.seconds,d.timed_samples
+ORDER BY e.series,e.focus_series,e.project,e.scene,e.comm_key,e.status_key,e.item,e.tag`+rowLimit, args...)
 	if e != nil {
 		internal(w, e)
 		return
@@ -211,7 +227,7 @@ ORDER BY e.series,e.focus_series,e.project,e.scene,i.item,i.tag`+rowLimit, args.
 		fail(w, 400, "QUERY_TOO_BROAD", "请缩小筛选范围")
 		return
 	}
-	rows, e = tx.Query(r.Context(), filtered+`SELECT (occurred_at AT TIME ZONE $9)::date::text AS day,count(*) FILTER(WHERE event_type<>'refresh') AS samples,count(*) FILTER(WHERE event_type='refresh') AS appearances FROM filtered GROUP BY day ORDER BY day`, append(args, zone)...)
+	rows, e = tx.Query(r.Context(), filtered+`SELECT (occurred_at AT TIME ZONE $11)::date::text AS day,count(*) FILTER(WHERE event_type<>'refresh') AS samples,count(*) FILTER(WHERE event_type='refresh') AS appearances FROM filtered GROUP BY day ORDER BY day`, append(args, zone)...)
 	if e != nil {
 		internal(w, e)
 		return
@@ -233,17 +249,18 @@ ORDER BY e.series,e.focus_series,e.project,e.scene,i.item,i.tag`+rowLimit, args.
 // This is derived from the latest result, so rollback can reopen a candidate.
 const candidateReviewCTE = `WITH candidate_review AS (
  SELECT c.*, (SELECT count(DISTINCT cs.sample_sha256) FROM candidate_sources cs
- LEFT JOIN stat_results r ON r.sha256=cs.sample_sha256
+ LEFT JOIN stat_effective_results r ON r.sha256=cs.sample_sha256
  WHERE cs.candidate_id=c.id AND (r.sha256 IS NULL OR
  (r.status='needs_review' AND (r.payload->'candidate_ids') ? c.id))) AS blocked_samples
  FROM template_candidates c
 ), candidates AS (
- SELECT id,scene,image,metadata,first_seen,last_seen,blocked_samples,
+ SELECT id,scene,image,metadata,icon_sha256,first_seen,last_seen,blocked_samples,
+ (SELECT k.canonical_key FROM unknown_hashes h LEFT JOIN unknown_hash_overrides o ON o.local_key=h.local_key JOIN unknown_canonical_keys k ON k.key=COALESCE(o.cluster_key,h.cluster_key) WHERE h.local_key=candidate_review.icon_sha256) AS cluster_key,
  CASE WHEN status='pending' AND blocked_samples=0 THEN 'resolved' ELSE status END AS status
  FROM candidate_review
 ) `
 
-const missingTemplateSQL = `(CASE WHEN jsonb_typeof(r.payload->'candidate_ids')='array' THEN jsonb_array_length(r.payload->'candidate_ids') ELSE 0 END>0 OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(r.payload->'diagnostics')='array' THEN r.payload->'diagnostics' ELSE '[]'::jsonb END) d WHERE d='missing_template' OR d LIKE 'missing_template:%'))`
+const missingTemplateSQL = `(CASE WHEN jsonb_typeof(r.payload->'candidate_ids')='array' THEN jsonb_array_length(r.payload->'candidate_ids') ELSE 0 END>0 OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(r.payload->'diagnostics')='array' THEN r.payload->'diagnostics' ELSE '[]'::jsonb END) d WHERE d='missing_template' OR d LIKE 'missing_template:%' OR d LIKE 'unmapped_cluster:%'))`
 
 func (s *Service) adminList(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
@@ -252,7 +269,7 @@ func (s *Service) adminList(w http.ResponseWriter, r *http.Request) {
 		images := map[string]int64{}
 		for _, name := range []string{"complete", "needs_review", "invalid"} {
 			var n, files int64
-			if e := s.Pool.QueryRow(r.Context(), `SELECT count(*),COALESCE(sum(jsonb_array_length(payload->'source'->'files')),0)::bigint FROM stat_results WHERE status=$1`, name).Scan(&n, &files); e != nil {
+			if e := s.Pool.QueryRow(r.Context(), `SELECT count(*),COALESCE(sum(jsonb_array_length(payload->'source'->'files')),0)::bigint FROM stat_effective_results WHERE status=$1`, name).Scan(&n, &files); e != nil {
 				internal(w, e)
 				return
 			}
@@ -265,7 +282,7 @@ func (s *Service) adminList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var templateReports, parserReports, templateImages, parserImages int64
-		if e := s.Pool.QueryRow(r.Context(), `SELECT count(*) FILTER(WHERE `+missingTemplateSQL+`), count(*) FILTER(WHERE NOT `+missingTemplateSQL+`), COALESCE(sum(jsonb_array_length(payload->'source'->'files')) FILTER(WHERE `+missingTemplateSQL+`),0)::bigint, COALESCE(sum(jsonb_array_length(payload->'source'->'files')) FILTER(WHERE NOT `+missingTemplateSQL+`),0)::bigint FROM stat_results r WHERE status='needs_review'`).Scan(&templateReports, &parserReports, &templateImages, &parserImages); e != nil {
+		if e := s.Pool.QueryRow(r.Context(), `SELECT count(*) FILTER(WHERE `+missingTemplateSQL+`), count(*) FILTER(WHERE NOT `+missingTemplateSQL+`), COALESCE(sum(jsonb_array_length(payload->'source'->'files')) FILTER(WHERE `+missingTemplateSQL+`),0)::bigint, COALESCE(sum(jsonb_array_length(payload->'source'->'files')) FILTER(WHERE NOT `+missingTemplateSQL+`),0)::bigint FROM stat_effective_results r WHERE status='needs_review'`).Scan(&templateReports, &parserReports, &templateImages, &parserImages); e != nil {
 			internal(w, e)
 			return
 		}
@@ -283,7 +300,7 @@ func (s *Service) adminList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	queries := map[string]string{
-		"results":             `SELECT sha256,revision,status,payload,updated_at FROM stat_results r WHERE ($1='' OR status=$1) AND ($2='' OR ($2='missing_template' AND ` + missingTemplateSQL + `) OR ($2='parser_failure' AND NOT ` + missingTemplateSQL + `)) ORDER BY updated_at DESC LIMIT 100`,
+		"results":             `SELECT sha256,revision,status,payload,updated_at FROM stat_effective_results r WHERE ($1='' OR status=$1) AND ($2='' OR ($2='missing_template' AND ` + missingTemplateSQL + `) OR ($2='parser_failure' AND NOT ` + missingTemplateSQL + `)) ORDER BY updated_at DESC LIMIT 100`,
 		"template-candidates": candidateReviewCTE + `SELECT c.*, (SELECT count(*) FROM candidate_sources cs WHERE cs.candidate_id=c.id) AS occurrences, (SELECT jsonb_agg(metadata||jsonb_build_object('sample_sha256',sample_sha256,'occurrence',occurrence)) FROM (SELECT * FROM candidate_sources WHERE candidate_id=c.id LIMIT 20) x) AS sources FROM candidates c WHERE ($1='' OR status=$1) ORDER BY last_seen DESC LIMIT 100`,
 		"templates":           `SELECT id,item_id,name,category,rarity,series,scene,enabled,image FROM stat_templates WHERE ($1='' OR item_id=$1) ORDER BY item_id,id LIMIT 1000`,
 		"template-releases":   `SELECT id,sha256,created_at,id=(SELECT release_id FROM template_active WHERE id) AS active FROM template_releases WHERE ($1='') ORDER BY id DESC LIMIT 30`,
@@ -329,7 +346,7 @@ func commandPayload(sources []json.RawMessage, templates []Template) []byte {
 	return b
 }
 func validateTemplate(t Template) error {
-	if !lootItemRE.MatchString(t.ItemID) || t.Name == "" || len(t.Name) > 128 || t.Series < 0 || t.Series > 100 || t.Rarity < 0 || t.Rarity > 6 {
+	if !lootItemRE.MatchString(t.ItemID) || clusterRE.MatchString(t.ItemID) || t.ItemID == "PlaceHolder" || t.Name == "" || len(t.Name) > 128 || t.Series < 0 || t.Series > 100 || t.Rarity < 0 || t.Rarity > 6 {
 		return fmt.Errorf("物品标识、名称、期数或稀有度无效")
 	}
 	switch t.Category {

@@ -8,6 +8,7 @@ import { Logo } from '../ui'
 import './PublicStatistics.css'
 
 interface Group {
+  comm?: string; status?: number | null
   series: number; focus_series: number; project: string; scene: string; appearances: number; samples: number
   duration_seconds: number; appearance_rate: number; total_appearances: number
 }
@@ -20,6 +21,7 @@ interface Summary {
   daily: { day: string; samples: number; appearances: number }[]
 }
 interface Slot {
+  comm?: string; status?: number | null
   slot_index: number; slot_start: string; series: number; focus_series: number; project: string; scene: string
   appearances: number; samples: number; total_appearances: number; appearance_rate: number
 }
@@ -40,8 +42,8 @@ const focusValue = (focus: number) => focus ? String(focus) : 'unknown'
 const focusLabel = (focus: number) => focus ? `倾向第 ${focus} 期` : '倾向未识别'
 const number = (n: number) => n.toLocaleString('zh-CN')
 const percent = (n: number) => `${(n * 100).toFixed(2)}%`
-const groupLabel = (g: Pick<Group, 'series' | 'project'>) => g.series ? `第 ${g.series} 期 · ${g.project}` : g.project || '通用掉落'
-const keyOf = (g: Pick<Group, 'series' | 'focus_series' | 'project' | 'scene'>) => JSON.stringify([g.series, g.focus_series, g.project, g.scene])
+const groupLabel = (g: Pick<Group, 'series' | 'project' | 'comm' | 'status'>) => g.series ? `第 ${g.series} 期 · ${g.project}` : `${g.project || '通用掉落'}${g.comm?.endsWith(' N') ? ' · 夜间' : ''}${g.status == null ? '' : g.status === 1 ? ' · 大成功' : ' · 成功'}`
+const keyOf = (g: Pick<Group, 'series' | 'focus_series' | 'project' | 'scene' | 'comm' | 'status'>) => JSON.stringify([g.series, g.focus_series, g.project, g.scene, g.comm, g.status])
 
 // Public requests never read admin localStorage or attach an Authorization header.
 async function readPublic<T>(path: string, signal: AbortSignal): Promise<T> {
@@ -85,15 +87,15 @@ function TimeSlots({ slots, groups }: { slots: Slot[]; groups: Group[] }) {
 function ItemsTable({ items, research }: { items: Item[]; research: boolean }) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
-  const filtered = items.filter((row) => `${row.item} ${row.project} ${row.scene}`.toLowerCase().includes(search.toLowerCase()))
+  const filtered = items.filter((row) => `${row.item} ${row.project} ${row.comm ?? ''} ${row.scene}`.toLowerCase().includes(search.toLowerCase()))
   const pages = Math.max(1, Math.ceil(filtered.length / 25))
   const current = Math.min(page, pages - 1)
   return <section className="public-card">
     <div className="public-section-head"><div><p className="public-eyebrow">REWARDS</p><h2>掉落明细</h2></div><label>搜索物品 / 项目 / 场景<input type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }} placeholder="例如 Blueprint、Coins" /></label></div>
-    <p className="public-note">{research ? '按期数、项目和倾向分别列行统计。' : '每个掉落来源分别列行统计。'}普通、额外等标签分开计数；单次均量包含未掉落该物品的有效样本。</p>
+    <p className="public-note">{research ? '按期数、项目和倾向分别列行统计。' : '每个掉落来源分别列行统计；委托区分名称、夜间和完成状态，超过 50 个有效样本后显示物品统计。'}普通、额外等标签分开计数；单次均量包含未掉落该物品的有效样本。</p>
     {filtered.length ? <><div className="table-wrap"><table className="public-table"><thead><tr><th>物品</th><th>项目 / 场景</th><th>总数量</th><th>掉落样本 / 有效样本</th><th>掉落率</th><th>单次均量</th><th>每小时</th></tr></thead><tbody>
-      {filtered.slice(current * 25, (current + 1) * 25).map((row) => <tr key={JSON.stringify([keyOf(row), row.item, row.tag])}><td><strong>{row.item}</strong><span className="public-cell-note">{tags[row.tag] ?? row.tag}</span></td><td>{research ? groupLabel(row) : sceneLabel(row.scene)}<span className="public-cell-note">{research ? focusLabel(row.focus_series) : row.scene || '未标注来源'}</span></td><td>{number(row.amount)}</td><td>{number(row.occurrences)} / {number(row.samples)}</td><td>{percent(row.drop_rate)}</td><td>{row.average_per_sample.toFixed(3)}</td><td>{row.amount_per_hour === null ? '—' : row.amount_per_hour.toFixed(3)}</td></tr>)}
-    </tbody></table></div><div className="public-pagination"><span>{number(filtered.length)} 条 · 第 {current + 1} / {pages} 页</span><div><button className="ghost" disabled={current === 0} onClick={() => setPage(current - 1)}>上一页</button><button className="ghost" disabled={current + 1 >= pages} onClick={() => setPage(current + 1)}>下一页</button></div></div></> : <div className="public-empty"><strong>{search ? '没有符合搜索的物品' : '当前筛选暂无掉落数据'}</strong><p>仅识别完整的结果计入统计。识别失败的截图会在模板补齐并重识别后更新。</p></div>}
+      {filtered.slice(current * 25, (current + 1) * 25).map((row) => <tr key={JSON.stringify([keyOf(row), row.item, row.tag])}><td><strong>{row.item}</strong><span className="public-cell-note">{tags[row.tag] ?? row.tag}</span></td><td>{research || row.scene.startsWith('commission') ? groupLabel(row) : sceneLabel(row.scene)}<span className="public-cell-note">{research ? focusLabel(row.focus_series) : row.scene || '未标注来源'}</span></td><td>{number(row.amount)}</td><td>{number(row.occurrences)} / {number(row.samples)}</td><td>{percent(row.drop_rate)}</td><td>{row.average_per_sample.toFixed(3)}</td><td>{row.amount_per_hour === null ? '—' : row.amount_per_hour.toFixed(3)}</td></tr>)}
+    </tbody></table></div><div className="public-pagination"><span>{number(filtered.length)} 条 · 第 {current + 1} / {pages} 页</span><div><button className="ghost" disabled={current === 0} onClick={() => setPage(current - 1)}>上一页</button><button className="ghost" disabled={current + 1 >= pages} onClick={() => setPage(current + 1)}>下一页</button></div></div></> : <div className="public-empty"><strong>{search ? '没有符合搜索的物品' : '当前筛选暂无掉落数据'}</strong><p>未知物品确认映射后自动更新统计；解析失败的记录需在修复并重识别后更新。</p></div>}
   </section>
 }
 

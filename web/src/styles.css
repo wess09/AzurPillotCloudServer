@@ -500,6 +500,8 @@ button.ghost:hover:not(:disabled) {
 .recognition-hash { overflow-wrap: anywhere; font-family: Consolas, monospace; font-size: 12px; }
 .recognition-command { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .recognition-command summary { cursor: pointer; font-weight: 500; }
+.recognition-command summary.ghost { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--panel); color: var(--text); }
+.recognition-command summary.ghost:hover { background: var(--surface-hover, #f5f5f5); }
 .recognition-command pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; font-size: 12px; }
 .template-thumb { width: 48px; height: 48px; image-rendering: pixelated; }
 .source-preview { display: block; width: 100%; margin-top: 16px; }

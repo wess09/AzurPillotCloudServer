@@ -36,6 +36,15 @@ func Open(ctx context.Context, databaseURL string, dedupTTL time.Duration) (*Sto
 	cfg.MaxConnLifetime = 30 * time.Minute
 	cfg.MaxConnIdleTime = 5 * time.Minute
 	cfg.HealthCheckPeriod = time.Minute
+	// Expanding the review/mapping views can trigger very expensive LLVM JIT
+	// compilation even for small summaries. Prefer the normal executor; an
+	// operator can explicitly opt in with jit=on in the connection string.
+	if cfg.ConnConfig.RuntimeParams == nil {
+		cfg.ConnConfig.RuntimeParams = map[string]string{}
+	}
+	if _, explicit := cfg.ConnConfig.RuntimeParams["jit"]; !explicit {
+		cfg.ConnConfig.RuntimeParams["jit"] = "off"
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -65,6 +74,17 @@ func (s *Store) Close() {
 
 // migrate 依序执行未应用的迁移，每个迁移在独立事务中提交。
 func (s *Store) migrate(ctx context.Context) error {
+	// Different server instances (and parallel test packages) may open the same
+	// fresh database. Lock before creating even the migration journal; individual
+	// schema versions still commit separately for restart-safe upgrades.
+	guard, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("建立迁移锁事务失败: %w", err)
+	}
+	defer func() { _ = guard.Rollback(ctx) }()
+	if _, err = guard.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('ap-cloud-server/schema-migrations',0))`); err != nil {
+		return fmt.Errorf("获取迁移锁失败: %w", err)
+	}
 	if _, err := s.Pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version    INTEGER PRIMARY KEY,
@@ -118,12 +138,15 @@ func (s *Store) migrate(ctx context.Context) error {
 			return fmt.Errorf("提交迁移 %q 失败: %w", name, err)
 		}
 	}
-	return nil
+	return guard.Commit(ctx)
 }
 
 // CleanupExpired 删除过期的去重记录与过旧的发布历史。
 // 由后台清理协程周期调用。
 func (s *Store) CleanupExpired(ctx context.Context) error {
+	if _, err := s.Pool.Exec(ctx, `DELETE FROM unknown_screenshots WHERE expires_at<=now()`); err != nil {
+		return fmt.Errorf("清理过期原图引用失败: %w", err)
+	}
 	if _, err := s.Pool.Exec(ctx, `DELETE FROM cl1_dedup WHERE expires_at < now()`); err != nil {
 		return fmt.Errorf("清理去重记录失败: %w", err)
 	}

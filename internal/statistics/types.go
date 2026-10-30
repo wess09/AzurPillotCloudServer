@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -47,16 +48,28 @@ type Item struct {
 	Tag    string `json:"tag"`
 }
 type Event struct {
-	Zone        string `json:"zone,omitempty"`
-	ZoneType    string `json:"zone_type,omitempty"`
-	ZoneID      int    `json:"zone_id,omitempty"`
-	HazardLevel int    `json:"hazard_level,omitempty"`
-	Type        string `json:"event_type"`
-	Series      int    `json:"series"`
-	Project     string `json:"project"`
-	FocusSeries int    `json:"focus_series"`
-	Duration    int64  `json:"duration_seconds"`
-	Items       []Item `json:"items"`
+	RecordID    string           `json:"record_id,omitempty"`
+	Comm        *string          `json:"comm,omitempty"`
+	Name        string           `json:"name,omitempty"`
+	Status      *int             `json:"status,omitempty"`
+	Unresolved  []UnresolvedItem `json:"unresolved_items,omitempty"`
+	Zone        string           `json:"zone,omitempty"`
+	ZoneType    string           `json:"zone_type,omitempty"`
+	ZoneID      int              `json:"zone_id,omitempty"`
+	HazardLevel int              `json:"hazard_level,omitempty"`
+	Type        string           `json:"event_type"`
+	Series      int              `json:"series"`
+	Project     string           `json:"project"`
+	FocusSeries int              `json:"focus_series"`
+	Duration    int64            `json:"duration_seconds"`
+	Items       []Item           `json:"items"`
+}
+
+type UnresolvedItem struct {
+	LocalKey    string `json:"local_key"`
+	CandidateID string `json:"candidate_id,omitempty"`
+	Tag         string `json:"tag"`
+	Amount      int64  `json:"amount"`
 }
 type Result struct {
 	SHA256        string   `json:"sha256"`
@@ -85,15 +98,18 @@ type Candidate struct {
 	Metadata   map[string]any `json:"metadata"`
 }
 type Template struct {
-	ID       string `json:"id"`
-	ItemID   string `json:"item_id"`
-	Name     string `json:"name"`
-	Category string `json:"category"`
-	Rarity   int    `json:"rarity"`
-	Series   int    `json:"series"`
-	Scene    string `json:"scene"`
-	Enabled  bool   `json:"enabled"`
-	Image    string `json:"image"`
+	IconSHA256 string `json:"icon_sha256,omitempty"`
+	Kind       string `json:"kind,omitempty"`
+	SHA256     string `json:"sha256,omitempty"`
+	ID         string `json:"id"`
+	ItemID     string `json:"item_id"`
+	Name       string `json:"name"`
+	Category   string `json:"category"`
+	Rarity     int    `json:"rarity"`
+	Series     int    `json:"series"`
+	Scene      string `json:"scene"`
+	Enabled    bool   `json:"enabled"`
+	Image      string `json:"image"`
 }
 
 func (r Result) validate() error {
@@ -146,7 +162,28 @@ func (r Result) validateLimits(fileBytes, groupBytes int64) error {
 	if r.Status == "complete" && (len(r.Events) == 0 || len(r.Diagnostics) > 0 || len(r.Candidates) > 0) {
 		return fmt.Errorf("complete results require events and no unresolved diagnostics")
 	}
+	records := map[string]bool{}
 	for _, e := range r.Events {
+		if e.RecordID != "" {
+			if records[e.RecordID] {
+				return fmt.Errorf("duplicate event record_id")
+			}
+			records[e.RecordID] = true
+		}
+		if e.RecordID != "" && !hashRE.MatchString(e.RecordID) || e.Comm != nil && (len(*e.Comm) == 0 || len(*e.Comm) > 128) || len(e.Name) > 128 || e.Status != nil && (*e.Status < 0 || *e.Status > 1) {
+			return fmt.Errorf("invalid commission identity/status")
+		}
+		if r.Parser == "azurpilot-adapter-v4" && strings.HasPrefix(m.Scene, "commission") && (e.Status == nil || e.Name == "" || e.Name != e.Project || e.RecordID == "") {
+			return fmt.Errorf("commission v4 requires record_id, name and status")
+		}
+		if len(e.Unresolved)+len(e.Items) > 200 || r.Status == "complete" && len(e.Unresolved) > 0 {
+			return fmt.Errorf("invalid unresolved item count/status")
+		}
+		for _, item := range e.Unresolved {
+			if !hashRE.MatchString(item.LocalKey) || item.CandidateID != "" && !hashRE.MatchString(item.CandidateID) || item.Amount < 1 || item.Amount > 1e9 || !validRewardTag(item.Tag) {
+				return fmt.Errorf("invalid unresolved item")
+			}
+		}
 		if e.ZoneID < 0 || e.ZoneID > 10000 || e.HazardLevel < 0 || e.HazardLevel > 6 || len(e.Zone) > 128 || len(e.ZoneType) > 32 {
 			return fmt.Errorf("invalid zone metadata")
 		}
@@ -166,6 +203,9 @@ func (r Result) validateLimits(fileBytes, groupBytes int64) error {
 		seen := map[string]bool{}
 		for _, item := range e.Items {
 			k := item.Item + "/" + item.Tag
+			if r.Status == "complete" && clusterRE.MatchString(item.Item) {
+				return fmt.Errorf("unmapped cluster cannot be a complete reward")
+			}
 			if !lootItemRE.MatchString(item.Item) || item.Amount < 1 || item.Amount > 1e9 || seen[k] {
 				return fmt.Errorf("invalid/duplicate item")
 			}
@@ -178,4 +218,12 @@ func (r Result) validateLimits(fileBytes, groupBytes int64) error {
 		}
 	}
 	return nil
+}
+
+func validRewardTag(tag string) bool {
+	switch tag {
+	case "", "bonus", "event", "catchup", "meow", "log", "scan":
+		return true
+	}
+	return false
 }

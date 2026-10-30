@@ -3,6 +3,7 @@
 package statistics
 
 import (
+	"crypto/ed25519"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -16,7 +17,10 @@ import (
 )
 
 type Service struct {
+	matchSlots             chan struct{}
+	signingKey             ed25519.PrivateKey
 	WorkerURL, WorkerToken string
+	AllowInsecureWorker    bool
 	Pool                   *pgxpool.Pool
 	Token, Admin           string
 	FileBytes, GroupBytes  int64
@@ -24,7 +28,7 @@ type Service struct {
 }
 
 func New(pool *pgxpool.Pool, token, admin string) *Service {
-	return &Service{Pool: pool, Token: token, Admin: admin, Now: time.Now, FileBytes: 10 << 20, GroupBytes: 500 << 20}
+	return &Service{Pool: pool, Token: token, Admin: admin, Now: time.Now, FileBytes: 10 << 20, GroupBytes: 500 << 20, matchSlots: make(chan struct{}, 4)}
 }
 func (s *Service) WithLimits(file, group int64) *Service {
 	s.FileBytes, s.GroupBytes = file, group
@@ -91,6 +95,12 @@ func (s *Service) Register(m *http.ServeMux) {
 	m.HandleFunc("POST /internal/v1/statistics/results", s.auth(s.Token, s.ingest))
 	m.HandleFunc("GET /internal/v1/statistics/results/{sha256}", s.auth(s.Token, s.receipt))
 	m.HandleFunc("POST /internal/v1/template-candidates", s.auth(s.Token, s.candidate))
+	m.HandleFunc("POST /internal/v1/unknown-screenshots", s.auth(s.Token, s.screenshotReference))
+	m.HandleFunc("GET /api/v3/get/templates/manifest", s.manifest)
+	m.HandleFunc("GET /api/v3/get/templates/delta", s.delta)
+	m.HandleFunc("GET /api/v3/get/mappings", s.delta)
+	m.HandleFunc("GET /api/v1/admin/unknown-clusters", s.auth(s.Admin, s.clusters))
+	m.HandleFunc("POST /api/v1/admin/unknown-clusters/{action}", s.auth(s.Admin, s.clusterEdit))
 	m.HandleFunc("POST /internal/v1/worker/sync", s.auth(s.Token, s.syncWorker))
 	m.HandleFunc("GET /internal/v1/template-releases/{id}", s.auth(s.Token, s.release))
 	m.HandleFunc("GET /api/v2/get/research", s.summary)

@@ -3,6 +3,7 @@ package statistics
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -40,6 +41,10 @@ func (s *Service) candidate(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "VALIDATION_ERROR", "候选描述过大")
 		return
 	}
+	if s.WorkerURL != "" {
+		s.clusteredCandidate(w, r, c)
+		return
+	}
 	tx, e := s.Pool.Begin(r.Context())
 	if e != nil {
 		internal(w, e)
@@ -74,6 +79,7 @@ func (s *Service) classify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Status == "assigned" {
+		body.Template.ItemID = stripVariant(body.Template.ItemID)
 		if e := validateTemplate(body.Template); e != nil {
 			fail(w, 400, "VALIDATION_ERROR", e.Error())
 			return
@@ -88,6 +94,10 @@ func (s *Service) classify(w http.ResponseWriter, r *http.Request) {
 	// Take the publication lock before editing, so each snapshot includes all
 	// classifications committed before it and cannot overwrite a newer snapshot.
 	if _, e = tx.Exec(r.Context(), `SELECT id FROM template_active WHERE id FOR UPDATE`); e != nil {
+		internal(w, e)
+		return
+	}
+	if _, e = tx.Exec(r.Context(), `SELECT pg_advisory_xact_lock(hashtext('unknown-icons'))`); e != nil {
 		internal(w, e)
 		return
 	}
@@ -115,6 +125,35 @@ func (s *Service) classify(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
+	var key *string
+	e = tx.QueryRow(r.Context(), `SELECT k.canonical_key FROM template_candidates c LEFT JOIN unknown_hashes h ON h.local_key=c.icon_sha256 LEFT JOIN unknown_hash_overrides o ON o.local_key=h.local_key LEFT JOIN unknown_canonical_keys k ON k.key=COALESCE(o.cluster_key,h.cluster_key) WHERE c.id=$1`, id).Scan(&key)
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	if key != nil {
+		if body.Status == "assigned" && body.Template.Enabled {
+			_, e = tx.Exec(r.Context(), `INSERT INTO unknown_mapping_drafts(cluster_key,item) VALUES($1,$2) ON CONFLICT(cluster_key) DO UPDATE SET item=EXCLUDED.item`, *key, body.Template.ItemID)
+		} else {
+			_, e = tx.Exec(r.Context(), `DELETE FROM unknown_mapping_drafts WHERE cluster_key=$1`, *key)
+		}
+		if e != nil {
+			internal(w, e)
+			return
+		}
+		clusterStatus := body.Status
+		if body.Status == "assigned" && !body.Template.Enabled {
+			clusterStatus = "pending"
+		}
+		if _, e = tx.Exec(r.Context(), `UPDATE unknown_clusters SET status=$2 WHERE key=$1`, *key, clusterStatus); e != nil {
+			internal(w, e)
+			return
+		}
+		if _, e = tx.Exec(r.Context(), `DELETE FROM unknown_screenshots WHERE cluster_key=$1`, *key); e != nil {
+			internal(w, e)
+			return
+		}
+	}
 	ts, e := readTemplates(r.Context(), tx)
 	if e != nil {
 		internal(w, e)
@@ -125,7 +164,7 @@ func (s *Service) classify(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "VALIDATION_ERROR", e.Error())
 		return
 	}
-	releaseID, queued, e := releaseInTx(r.Context(), tx, packageJSON)
+	releaseID, queued, e := releaseInTx(r.Context(), tx, packageJSON, s.signingKey)
 	if e != nil {
 		internal(w, e)
 		return
@@ -197,7 +236,7 @@ func (s *Service) createRelease(ctx context.Context, payload []byte) (int64, err
 	if _, e = tx.Exec(ctx, `SELECT id FROM template_active WHERE id FOR UPDATE`); e != nil {
 		return 0, e
 	}
-	id, _, e := releaseInTx(ctx, tx, payload)
+	id, _, e := releaseInTx(ctx, tx, payload, s.signingKey)
 	if e != nil {
 		return 0, e
 	}
@@ -207,28 +246,66 @@ func (s *Service) createRelease(ctx context.Context, payload []byte) (int64, err
 	return id, nil
 }
 
-func releaseInTx(ctx context.Context, tx pgx.Tx, payload []byte) (int64, int64, error) {
-	sum := sha256.Sum256(payload)
+func releaseInTx(ctx context.Context, tx pgx.Tx, payload []byte, signingKeys ...ed25519.PrivateKey) (int64, int64, error) {
 	var e error
 	var id int64
 	var previous []byte
-	e = tx.QueryRow(ctx, `SELECT payload FROM template_releases WHERE id=(SELECT release_id FROM template_active WHERE id)`).Scan(&previous)
+	var previousRevision int64
+	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('unknown-icons'))`); e != nil {
+		return 0, 0, e
+	}
+	e = tx.QueryRow(ctx, `SELECT payload,id FROM template_releases WHERE id=(SELECT release_id FROM template_active WHERE id)`).Scan(&previous, &previousRevision)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
+		return 0, 0, e
+	}
+	if e = tx.QueryRow(ctx, `SELECT nextval(pg_get_serial_sequence('template_releases','id'))`).Scan(&id); e != nil {
+		return 0, 0, e
+	}
+	payload, e = buildBundle(ctx, tx, id, payload)
+	if e != nil {
 		return 0, 0, e
 	}
 	changed, retryMissing, e := changedRecognitionTemplates(previous, payload)
 	if e != nil {
 		return 0, 0, e
 	}
-	if e = tx.QueryRow(ctx, `INSERT INTO template_releases(sha256,payload) VALUES($1,$2) RETURNING id`, hex.EncodeToString(sum[:]), payload).Scan(&id); e != nil {
+	sum := sha256.Sum256(payload)
+	signature, public := "", ""
+	if len(signingKeys) > 0 {
+		signature, public = signPayload(payload, id, signingKeys[0])
+	}
+	if _, e = tx.Exec(ctx, `INSERT INTO template_releases(id,sha256,payload,signature,public_key) VALUES($1,$2,$3,$4,$5)`, id, hex.EncodeToString(sum[:]), payload, signature, public); e != nil {
 		return 0, 0, e
+	}
+	var bundle contentBundle
+	if e = json.Unmarshal(payload, &bundle); e != nil {
+		return 0, 0, e
+	}
+	for key, item := range bundle.Mappings {
+		if _, e = tx.Exec(ctx, `INSERT INTO unknown_mappings(revision,cluster_key,item) VALUES($1,$2,$3)`, id, key, item); e != nil {
+			return 0, 0, e
+		}
 	}
 	if _, e = tx.Exec(ctx, `UPDATE template_active SET release_id=$1 WHERE id`, id); e != nil {
 		return 0, 0, e
 	}
+	recognitionChanged := retryMissing || len(changed) > 0
+	var unversionedFormal bool
+	if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM unknown_hashes WHERE formal_item IS NOT NULL AND formal_revision<0)`).Scan(&unversionedFormal); e != nil {
+		return 0, 0, e
+	}
+	recognitionChanged = recognitionChanged || unversionedFormal
+	if !recognitionChanged {
+		if _, e = tx.Exec(ctx, `UPDATE unknown_hashes SET formal_revision=$1 WHERE formal_item IS NOT NULL AND formal_revision=$2`, id, previousRevision); e != nil {
+			return 0, 0, e
+		}
+	}
+	if _, e = tx.Exec(ctx, `UPDATE unknown_state SET generation=generation+1 WHERE id`); e != nil {
+		return 0, 0, e
+	}
 	// Pure parser failures cannot be repaired by publishing an icon. New/changed
 	// matchers retry missing icons; existing users only retry changed matchers.
-	queued, e := queueTemplateRetries(ctx, tx, retryMissing, changed)
+	queued, e := queueTemplateRetries(ctx, tx, retryMissing, changed, recognitionChanged)
 	if e != nil {
 		return 0, 0, e
 	}
@@ -236,13 +313,17 @@ func releaseInTx(ctx context.Context, tx pgx.Tx, payload []byte) (int64, int64, 
 }
 
 func changedRecognitionTemplates(previous, next []byte) ([]string, bool, error) {
-	before, after := []Template{}, []Template{}
+	var before, after []Template
 	if len(previous) > 0 {
-		if e := json.Unmarshal(previous, &before); e != nil {
+		var e error
+		before, e = decodeTemplatePayload(previous)
+		if e != nil {
 			return nil, false, e
 		}
 	}
-	if e := json.Unmarshal(next, &after); e != nil {
+	var e error
+	after, e = decodeTemplatePayload(next)
+	if e != nil {
 		return nil, false, e
 	}
 	old := map[string]Template{}
@@ -258,7 +339,7 @@ func changedRecognitionTemplates(previous, next []byte) ([]string, bool, error) 
 			continue
 		}
 		prior, exists := old[t.ID]
-		if !exists || prior.ItemID != t.ItemID || prior.Scene != t.Scene || prior.Image != t.Image {
+		if !exists || prior.ItemID != t.ItemID || prior.Scene != t.Scene || prior.Image != t.Image || prior.Kind != t.Kind {
 			changed = append(changed, t.ID)
 			retryMissing = true
 		}
@@ -267,10 +348,49 @@ func changedRecognitionTemplates(previous, next []byte) ([]string, bool, error) 
 	for id := range old {
 		changed = append(changed, id)
 	}
+
+	if len(previous) > 0 && previous[0] == '{' && len(next) > 0 && next[0] == '{' {
+		var a, b contentBundle
+		if e = json.Unmarshal(previous, &a); e != nil {
+			return nil, false, e
+		}
+		if e = json.Unmarshal(next, &b); e != nil {
+			return nil, false, e
+		}
+		policy := func(v contentBundle) []byte {
+			raw, _ := json.Marshal([]any{v.Thresholds, v.Mappings, v.Aliases, v.HashOverrides})
+			return raw
+		}
+		if !bytes.Equal(policy(a), policy(b)) {
+			retryMissing = true
+			ids := map[string]bool{}
+			for _, id := range changed {
+				ids[id] = true
+			}
+			for _, t := range append(before, after...) {
+				if !ids[t.ID] {
+					changed = append(changed, t.ID)
+					ids[t.ID] = true
+				}
+			}
+			for hash := range a.HashOverrides {
+				if !ids[hash] {
+					changed = append(changed, hash)
+					ids[hash] = true
+				}
+			}
+			for hash := range b.HashOverrides {
+				if !ids[hash] {
+					changed = append(changed, hash)
+					ids[hash] = true
+				}
+			}
+		}
+	}
 	return changed, retryMissing, nil
 }
 
-func queueTemplateRetries(ctx context.Context, tx pgx.Tx, retryMissing bool, changed []string) (int64, error) {
+func queueTemplateRetries(ctx context.Context, tx pgx.Tx, retryMissing bool, changed []string, formalChanges ...bool) (int64, error) {
 	var release *int64
 	if e := tx.QueryRow(ctx, `SELECT release_id FROM template_active WHERE id`).Scan(&release); e != nil {
 		return 0, e
@@ -282,7 +402,8 @@ func queueTemplateRetries(ctx context.Context, tx pgx.Tx, retryMissing bool, cha
 	// A worker may already have fetched a command still marked pending on C.
 	// Never merge a new publication into that older command: its local ID is
 	// idempotent and it may already have run with the previous templates.
-	queued, e := tx.Exec(ctx, `INSERT INTO worker_commands(action,payload) SELECT 'reprocess',jsonb_build_object('sources',jsonb_build_array(r.payload->'source'),'templates','[]'::jsonb,'template_release',$2::bigint) FROM stat_results r WHERE (($1 AND status='needs_review' AND `+missingTemplateSQL+`) OR (r.payload->'used_templates') ?| $3::text[]) AND NOT EXISTS (SELECT 1 FROM worker_commands c WHERE c.action='reprocess' AND c.state='pending' AND COALESCE((c.payload->>'template_release')::bigint,0)=$2 AND c.payload->'sources' @> jsonb_build_array(r.payload->'source'))`, retryMissing, version, changed)
+	retryFormal := len(formalChanges) > 0 && formalChanges[0]
+	queued, e := tx.Exec(ctx, `INSERT INTO worker_commands(action,payload) SELECT 'reprocess',jsonb_build_object('sources',jsonb_build_array(r.payload->'source'),'templates','[]'::jsonb,'template_release',$2::bigint) FROM stat_results r WHERE (($1 AND status='needs_review' AND `+missingTemplateSQL+`) OR (r.payload->'used_templates') ?| $3::text[] OR ($4 AND EXISTS(SELECT 1 FROM template_candidates t JOIN unknown_hashes h ON h.local_key=t.icon_sha256 WHERE h.formal_item IS NOT NULL AND ((r.payload->'used_templates') ? t.id OR EXISTS(SELECT 1 FROM candidate_sources cs WHERE cs.candidate_id=t.id AND cs.sample_sha256=r.sha256))))) AND NOT EXISTS (SELECT 1 FROM worker_commands c WHERE c.action='reprocess' AND c.state='pending' AND COALESCE((c.payload->>'template_release')::bigint,0)=$2 AND c.payload->'sources' @> jsonb_build_array(r.payload->'source'))`, retryMissing, version, changed, retryFormal)
 	return queued.RowsAffected(), e
 }
 
@@ -310,6 +431,23 @@ func (s *Service) reprocessUnresolved(w http.ResponseWriter, r *http.Request) {
 	output(w, 202, map[string]any{"queued_samples": queued})
 }
 func (s *Service) publish(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Thresholds map[string]any `json:"match_thresholds"`
+	}
+	if r.ContentLength != 0 {
+		if !decode(w, r, &body) {
+			return
+		}
+	}
+	var settings []byte
+	if body.Thresholds != nil {
+		values, e := validateMatchThresholds(body.Thresholds)
+		if e != nil {
+			fail(w, 400, "VALIDATION_ERROR", e.Error())
+			return
+		}
+		settings, _ = json.Marshal(values)
+	}
 	tx, e := s.Pool.Begin(r.Context())
 	if e != nil {
 		internal(w, e)
@@ -319,6 +457,12 @@ func (s *Service) publish(w http.ResponseWriter, r *http.Request) {
 	if _, e = tx.Exec(r.Context(), `SELECT id FROM template_active WHERE id FOR UPDATE`); e != nil {
 		internal(w, e)
 		return
+	}
+	if settings != nil {
+		if _, e = tx.Exec(r.Context(), `UPDATE template_publish_settings SET thresholds=$1 WHERE id`, settings); e != nil {
+			internal(w, e)
+			return
+		}
 	}
 	ts, e := readTemplates(r.Context(), tx)
 	if e != nil {
@@ -330,7 +474,7 @@ func (s *Service) publish(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "VALIDATION_ERROR", e.Error())
 		return
 	}
-	id, queued, e := releaseInTx(r.Context(), tx, b)
+	id, queued, e := releaseInTx(r.Context(), tx, b, s.signingKey)
 	if e != nil {
 		internal(w, e)
 		return
@@ -348,8 +492,7 @@ func (s *Service) rollback(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &b) {
 		return
 	}
-	var payload []byte
-	e := s.Pool.QueryRow(r.Context(), `SELECT payload FROM template_releases WHERE id=$1`, b.ID).Scan(&payload)
+	payload, _, e := readStoredRelease(r.Context(), s.Pool, b.ID)
 	if errors.Is(e, pgx.ErrNoRows) {
 		fail(w, 404, "NOT_FOUND", "版本不存在")
 		return
@@ -371,9 +514,7 @@ func (s *Service) release(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "VALIDATION_ERROR", "无效版本")
 		return
 	}
-	var data []byte
-	var digest string
-	e = s.Pool.QueryRow(r.Context(), `SELECT payload,sha256 FROM template_releases WHERE id=$1`, id).Scan(&data, &digest)
+	data, digest, e := readStoredRelease(r.Context(), s.Pool, id)
 	if errors.Is(e, pgx.ErrNoRows) {
 		fail(w, 404, "NOT_FOUND", "版本不存在")
 		return
@@ -383,6 +524,30 @@ func (s *Service) release(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if !wantsBundle(r) {
+		ts, err := decodeTemplatePayload(data)
+		if err != nil {
+			internal(w, err)
+			return
+		}
+		formal := []Template{}
+		for _, entry := range ts {
+			if entry.Kind != "temporary" {
+				entry.Kind = ""
+				entry.SHA256 = ""
+				entry.IconSHA256 = ""
+				formal = append(formal, entry)
+			}
+		}
+		data, _ = json.Marshal(formal)
+		sum := sha256.Sum256(data)
+		digest = hex.EncodeToString(sum[:])
+	}
+	signature, public := signPayload(data, id, s.signingKey)
+	if signature != "" {
+		w.Header().Set("X-Content-Signature", signature)
+		w.Header().Set("X-Template-Public-Key", public)
+	}
 	w.Header().Set("X-Content-SHA256", digest)
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
 	_, _ = w.Write(data)

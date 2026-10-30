@@ -12,9 +12,11 @@ interface Template {
 }
 interface Candidate {
   id: string; image: string; scene: string; status: string; occurrences: number; blocked_samples: number
-  metadata: { server?: string; amount?: number }
+  cluster_key?: string; icon_sha256?: string
+  metadata: { server?: string; amount?: number; commission_name?: string; commission_status?: number; suspected_item?: string; match_score?: number }
   sources: { sample_sha256: string; file_index?: number; frame_index?: number; box?: number[] }[] | null
 }
+interface UnknownCluster { key: string; status: string; hits: number; icons: number; image: string }
 interface ResultRow {
   sha256: string; revision: number; status: string; updated_at: string
   payload: { diagnostics: string[]; source: { metadata: { scene: string; server: string } } }
@@ -81,12 +83,14 @@ export function TemplateCandidates() {
   const [filter, setFilter] = useState('pending')
   const rows = useLoad(() => list<Candidate>(`/api/v1/admin/template-candidates?status=${filter}`), [filter, pulse])
   const known = useLoad(() => list<Template>('/api/v1/admin/templates'), [pulse])
+  const clusters = useLoad(() => list<UnknownCluster>('/api/v1/admin/unknown-clusters'), [pulse])
+  const [targetCluster, setTargetCluster] = useState('')
   const [selected, setSelected] = useState<Candidate | null>(null)
   const [form, setForm] = useState<Template>(blank)
   const [preview, setPreview] = useState('')
   const action = useAction()
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
-  const choose = (candidate: Candidate) => { setSelected(candidate); setPreview(''); setForm(known.data?.items.find((t) => t.id === candidate.id) ?? { ...blank(), scene: 'all' }) }
+  const choose = (candidate: Candidate) => { setSelected(candidate); setPreview(''); setTargetCluster(''); setForm(known.data?.items.find((t) => t.id === candidate.id) ?? { ...blank(), scene: 'all' }) }
   const source = selected?.sources?.[0]
   const showPreview = () => action.run(async () => {
     if (!source) throw new Error('暂无关联原图')
@@ -104,6 +108,9 @@ export function TemplateCandidates() {
       {selected && <Card title="分类与归属">
         <form className="stack" onSubmit={(e) => { e.preventDefault(); void action.run(async () => { const result = await request<{ release_id: number; queued_samples: number }>('PATCH', `/api/v1/admin/template-candidates/${selected.id}`, { status: 'assigned', template: form }); rows.reload(); known.reload(); return `分类已保存并发布版本 ${result.release_id}，新增 ${result.queued_samples} 次重识别，已有待处理任务自动合并。B 将在下一次心跳接收。` }) }}>
           <img className="candidate-large" src={`data:image/png;base64,${selected.image}`} alt="当前候选模板" />
+          {selected.metadata.commission_name && <p>{selected.metadata.commission_name} · {selected.metadata.commission_status === 1 ? '大成功' : '成功'} · 数量 {selected.metadata.amount ?? '未识别'}</p>}
+          {selected.cluster_key && <p className="muted">未知物品 {selected.cluster_key} · 同一物品在不同场景共用分类，发布后同步解析历史记录。</p>}
+          {selected.metadata.suspected_item && <p className="muted">相近物品：{selected.metadata.suspected_item}（{((selected.metadata.match_score ?? 0) * 100).toFixed(1)}%），请对照原图确认。</p>}
           <label>物品标识<input required pattern="[A-Za-z0-9][A-Za-z0-9_. \-]{0,127}" placeholder="例如 BlueprintValparaiso" value={form.item_id} onChange={(e) => setForm({ ...form, item_id: e.target.value })} /><span className="muted">填写已有物品标识，可将不同外观归到同一物品。</span></label>
           <label>显示名称<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
           <label>物品分类<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{Object.entries(categories).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -113,6 +120,16 @@ export function TemplateCandidates() {
           <button type="submit" disabled={action.running}>保存分类并自动重识别</button>
           <div className="form-actions"><button type="button" className="ghost" disabled={action.running} onClick={() => void action.run(async () => { const result = await request<{ command_id: number }>('POST', '/api/v1/admin/templates/test', { ids: [selected.id] }); return `已登记试识别 #${result.command_id}，结果见下方记录` })}>试识别关联样本</button><button type="button" className="ghost" disabled={action.running} onClick={() => void action.run(async () => { await request('PATCH', `/api/v1/admin/template-candidates/${selected.id}`, { status: 'ignored', template: form }); setSelected(null); rows.reload(); return '已忽略候选' })}>忽略无效图</button><button type="button" className="ghost" disabled={action.running || !source} onClick={() => void showPreview()}>查看原始帧</button></div>
         </form>
+        {selected.cluster_key && <details className="recognition-command">
+          <summary className="ghost">修正未知物品归属</summary>
+          <p className="muted">合并整个未知物品组，或仅拆出当前图标。保存后会发布新版本；已有原始记录保留。</p>
+          <label>目标未知物品<select value={targetCluster} onChange={(e) => setTargetCluster(e.target.value)}><option value="">拆分为新的未知物品</option>{clusters.data?.items.filter((c) => c.key !== selected.cluster_key && c.status !== 'merged').map((c) => <option key={c.key} value={c.key}>{c.key} · {c.icons} 个图标 · {c.hits} 次出现</option>)}</select></label>
+          <div className="form-actions">{(['merge', 'split'] as const).map((operation) => <button type="button" className="ghost" key={operation} disabled={action.running || operation === 'merge' && !targetCluster} onClick={() => void action.run(async () => {
+            const result = await request<{ key: string; release_id: number }>('POST', `/api/v1/admin/unknown-clusters/${operation}`, { from_key: selected.cluster_key, to_key: targetCluster, local_key: selected.icon_sha256 ?? '' })
+            setSelected(null); rows.reload(); known.reload(); clusters.reload()
+            return `已保存为 ${result.key} 并发布版本 ${result.release_id}`
+          })}>{operation === 'merge' ? '合并整个未知物品组' : '仅拆出当前图标'}</button>)}</div>
+        </details>}
         {preview && <img className="source-preview" src={preview} alt="候选所在的原始截图帧" />}
       </Card>}
     </div>

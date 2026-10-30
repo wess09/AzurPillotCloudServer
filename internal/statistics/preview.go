@@ -43,14 +43,12 @@ func (s *Service) preview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, _ := json.Marshal(map[string]any{"source": source, "file_index": index, "frame_index": frame})
-	req, e := http.NewRequestWithContext(r.Context(), "POST", s.WorkerURL+"/internal/v1/preview", bytes.NewReader(body))
+	req, e := s.workerRequest(r.Context(), "/internal/v1/preview", bytes.NewReader(body))
 	if e != nil {
 		internal(w, e)
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+s.WorkerToken)
-	req.Header.Set("Content-Type", "application/json")
-	response, e := (&http.Client{Timeout: 50 * time.Second}).Do(req)
+	response, e := workerClient(50 * time.Second).Do(req)
 	if e != nil {
 		internal(w, e)
 		return

@@ -351,7 +351,11 @@ func TestCandidateAutomaticallyResolvesAndReopens(t *testing.T) {
 	s := service(t)
 	ctx := context.Background()
 	var data bytes.Buffer
-	if e := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 16, 16))); e != nil {
+	icon := image.NewNRGBA(image.Rect(0, 0, 49, 49))
+	for offset := 3; offset < len(icon.Pix); offset += 4 {
+		icon.Pix[offset] = 255
+	}
+	if e := png.Encode(&data, icon); e != nil {
 		t.Fatal(e)
 	}
 	digest := sha256.Sum256(data.Bytes())
@@ -486,9 +490,18 @@ func TestReprocessUnresolvedMergesConcurrentClicks(t *testing.T) {
 func TestTemplatePublicationOnlyRetriesRelevantFailures(t *testing.T) {
 	s := service(t)
 	ctx := context.Background()
-	a := Template{ID: strings.Repeat("a", 64), ItemID: "Coins", Enabled: true, Scene: "all", Image: "a"}
-	b := Template{ID: strings.Repeat("b", 64), ItemID: "Chips", Enabled: true, Scene: "all", Image: "b"}
-	c := Template{ID: strings.Repeat("c", 64), ItemID: "NewItem", Enabled: true, Scene: "all", Image: "c"}
+	icon := image.NewNRGBA(image.Rect(0, 0, 49, 49))
+	for offset := 3; offset < len(icon.Pix); offset += 4 {
+		icon.Pix[offset] = 255
+	}
+	var encoded bytes.Buffer
+	if e := png.Encode(&encoded, icon); e != nil {
+		t.Fatal(e)
+	}
+	validImage := base64.StdEncoding.EncodeToString(encoded.Bytes())
+	a := Template{ID: strings.Repeat("a", 64), ItemID: "Coins", Enabled: true, Scene: "all", Image: validImage}
+	b := Template{ID: strings.Repeat("b", 64), ItemID: "Chips", Enabled: true, Scene: "all", Image: validImage}
+	c := Template{ID: strings.Repeat("c", 64), ItemID: "NewItem", Enabled: true, Scene: "all", Image: validImage}
 	activate := func(templates []Template) {
 		t.Helper()
 		payload, e := json.Marshal(templates)

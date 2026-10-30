@@ -47,7 +47,7 @@ func (s *Service) legacyOpsiItems(w http.ResponseWriter, r *http.Request) {
 	COALESCE((r.payload->'events'->e.ordinal->>'hazard_level')::integer,0) AS hazard_level,
 	COALESCE((r.payload#>>'{source,metadata,combat_count}')::bigint,0) AS combat_count,
 	i.item,i.amount,i.tag,e.occurred_at AS created_at
-	FROM stat_results r JOIN stat_events e ON e.sha256=r.sha256 JOIN stat_items i ON i.sha256=e.sha256 AND i.ordinal=e.ordinal
+	FROM stat_effective_results r JOIN stat_effective_events e ON e.sha256=r.sha256 JOIN stat_effective_items i ON i.sha256=e.sha256 AND i.ordinal=e.ordinal
 	WHERE r.status='complete' AND e.kind='drop' AND e.scene=$2 AND e.scene LIKE 'opsi\_%' ESCAPE '\'
 	AND COALESCE(NULLIF(r.payload#>>'{source,metadata,legacy_device_id}',''),r.payload#>>'{source,metadata,device_id}')=$1
 	ORDER BY e.occurred_at,r.sha256,e.ordinal,i.item,i.tag LIMIT $3 OFFSET $4`, device, genre, limit, offset)

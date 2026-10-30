@@ -68,14 +68,26 @@ func (s *Service) Apply(ctx context.Context, r Result) (Receipt, error) {
 	if _, e = tx.Exec(ctx, `DELETE FROM stat_events WHERE sha256=$1`, r.SHA256); e != nil {
 		return ack, e
 	}
-	if r.Status == "complete" {
+	if _, e = tx.Exec(ctx, `DELETE FROM stat_review_events WHERE sha256=$1`, r.SHA256); e != nil {
+		return ack, e
+	}
+	if r.Status == "complete" || r.Status == "needs_review" {
+		eventTable, itemTable := "stat_events", "stat_items"
+		if r.Status == "needs_review" {
+			eventTable, itemTable = "stat_review_events", "stat_review_items"
+		}
 		at, _ := time.Parse(time.RFC3339Nano, r.Source.Metadata.CollectedAt)
 		for ordinal, event := range r.Events {
-			if _, e = tx.Exec(ctx, `INSERT INTO stat_events(sha256,ordinal,kind,event_type,occurred_at,server,scene,series,project,focus_series,duration_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, r.SHA256, ordinal, r.Source.Metadata.Project, event.Type, at, r.Source.Metadata.Server, r.Source.Metadata.Scene, event.Series, event.Project, event.FocusSeries, event.Duration); e != nil {
+			if _, e = tx.Exec(ctx, `INSERT INTO `+eventTable+`(sha256,ordinal,kind,event_type,occurred_at,server,scene,series,project,focus_series,duration_seconds,record_id,comm,name,commission_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, r.SHA256, ordinal, r.Source.Metadata.Project, event.Type, at, r.Source.Metadata.Server, r.Source.Metadata.Scene, event.Series, event.Project, event.FocusSeries, event.Duration, event.RecordID, event.Comm, event.Name, event.Status); e != nil {
 				return ack, e
 			}
 			for _, item := range event.Items {
-				if _, e = tx.Exec(ctx, `INSERT INTO stat_items(sha256,ordinal,item,tag,amount) VALUES($1,$2,$3,$4,$5)`, r.SHA256, ordinal, item.Item, item.Tag, item.Amount); e != nil {
+				if _, e = tx.Exec(ctx, `INSERT INTO `+itemTable+`(sha256,ordinal,item,tag,amount) VALUES($1,$2,$3,$4,$5)`, r.SHA256, ordinal, item.Item, item.Tag, item.Amount); e != nil {
+					return ack, e
+				}
+			}
+			for _, item := range event.Unresolved {
+				if _, e = tx.Exec(ctx, `INSERT INTO stat_review_items(sha256,ordinal,tag,amount,local_key,candidate_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(sha256,ordinal,item,tag,local_key,candidate_id) DO UPDATE SET amount=stat_review_items.amount+EXCLUDED.amount`, r.SHA256, ordinal, item.Tag, item.Amount, item.LocalKey, item.CandidateID); e != nil {
 					return ack, e
 				}
 			}
