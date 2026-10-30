@@ -31,23 +31,13 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:55432/apcloud_test?sslmode=disable
+      TEMPLATE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:55432/apcloud_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: |
-            web/package-lock.json
-            template-web/package-lock.json
-      - run: npm --prefix web ci
-      - run: npm --prefix web run build
-      - run: npm --prefix template-web ci
-      - run: npm --prefix template-web run build
       - run: go vet ./...
       - run: go test -race -count=1 ./...
 
@@ -80,16 +70,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: 构建管理后台前端
-        working-directory: web
-        run: |
-          npm ci
-          npm run build -- --outDir ../internal/adminui/dist
       - name: 构建
         env:
           GOOS: ${{ matrix.goos }}

@@ -82,10 +82,6 @@ func errUnauthorized() apiError {
 	return apiError{http.StatusUnauthorized, "UNAUTHORIZED", "缺少管理凭据", map[string]any{}}
 }
 
-func errForbidden() apiError {
-	return apiError{http.StatusForbidden, "FORBIDDEN", "管理凭据无效", map[string]any{}}
-}
-
 // errorEnvelope 是计划 3.6 的错误响应结构。
 type errorEnvelope struct {
 	SchemaVersion int       `json:"schema_version"`

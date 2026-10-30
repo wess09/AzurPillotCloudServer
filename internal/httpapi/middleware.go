@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"log/slog"
 	"net"
@@ -44,6 +45,15 @@ type statusWriter struct {
 	http.ResponseWriter
 	status      int
 	wroteHeader bool
+}
+
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, buffer, err := http.NewResponseController(w.ResponseWriter).Hijack()
+	if err == nil {
+		_ = conn.SetDeadline(time.Time{})
+	}
+	return conn, buffer, err
 }
 
 func (w *statusWriter) WriteHeader(code int) {
@@ -161,8 +171,8 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-// rateLimitMiddleware 将公开、管理和 Worker 请求分桶，避免反代共用来源 IP
-// 时 B 的集中上报挤占管理和查询额度。健康检查不消耗令牌。
+// rateLimitMiddleware separates public traffic, management and service events.
+// Health checks do not consume tokens.
 func (s *Server) rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
@@ -175,7 +185,7 @@ func (s *Server) rateLimitMiddleware(next http.Handler) http.Handler {
 			scope = "worker"
 		case strings.HasPrefix(r.URL.Path, "/api/v3/post/"):
 			scope = "v3"
-		case r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") || strings.HasPrefix(r.URL.Path, "/api/v1/admin/"):
+		case strings.HasPrefix(r.URL.Path, "/api/v1/admin/"):
 			scope = "admin"
 		}
 		if !s.limiter.allow(scope + "\x00" + clientIP(r)) {
@@ -187,20 +197,14 @@ func (s *Server) rateLimitMiddleware(next http.Handler) http.Handler {
 }
 
 // timeoutMiddleware 为每个请求设置处理超时。
-func timeoutMiddleware(d, publishTimeout time.Duration, next http.Handler) http.Handler {
+func timeoutMiddleware(d, _ time.Duration, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/admin/ws" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		timeout := d
-		publishing := (r.URL.Path == "/api/v1/admin/announcement" && (r.Method == http.MethodPut || r.Method == http.MethodDelete)) || (r.URL.Path == "/api/v1/admin/update-policy" && r.Method == http.MethodPut)
-		if publishing {
-			timeout = publishTimeout + 5*time.Second
-			controller := http.NewResponseController(w)
-			_ = controller.SetWriteDeadline(time.Now().Add(timeout))
-			defer func() { _ = controller.SetWriteDeadline(time.Time{}) }()
-		}
-		if strings.HasPrefix(r.URL.Path, "/api/v1/admin/statistics/preview/") {
-			timeout = 50 * time.Second
-		}
-		if r.URL.Path == "/api/v3/post/drops" || r.URL.Path == "/api/v3/post/templates/unknown" {
+		if r.URL.Path == "/api/v3/post/drops" {
 			timeout = 30 * time.Second
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)

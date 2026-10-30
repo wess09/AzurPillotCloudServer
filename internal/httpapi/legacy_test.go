@@ -38,20 +38,11 @@ func TestLegacyAPReadsAndUploadRedirect(t *testing.T) {
 	content := "hello"
 	b := &fakeBackend{announcement: &store.Announcement{ID: "notice-1", Title: "test", Content: &content}, force: true, maintenance: &store.Maintenance{Name: "maintenance", StartsAt: time.Date(2026, 10, 27, 0, 0, 0, 0, time.UTC)}}
 	s, _ := newTestServer(t, b, nil)
-	s.deps.Cfg.LegacyUploadURL = "http://160.202.238.171:30207/api/upload"
 	for _, c := range []struct{ path, want string }{{"/api/get/announcement", `"announcementId":"notice-1"`}, {"/api/get/announcement?id=notice-1", "{}"}, {"/api/force_update", "true"}, {"/api/maintenance", `"timezone":"UTC+9"`}} {
 		w := httptest.NewRecorder()
 		s.Handler().ServeHTTP(w, httptest.NewRequest("GET", c.path, nil))
 		if w.Code != 200 || !strings.Contains(w.Body.String(), c.want) {
 			t.Fatal(c.path, w.Code, w.Body)
-		}
-	}
-	for _, path := range []string{"/api/upload?genre=research", "/api/upload/?genre=research"} {
-		r := httptest.NewRequest("POST", path, strings.NewReader("unread image"))
-		w := httptest.NewRecorder()
-		s.Handler().ServeHTTP(w, r)
-		if w.Code != 307 || w.Header().Get("Location") != "http://160.202.238.171:30207/api/upload?genre=research" {
-			t.Fatal(w.Code, w.Header())
 		}
 	}
 }

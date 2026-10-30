@@ -14,7 +14,7 @@ services:
       retries: 10
 
   server:
-    image: ${STATISTICS_IMAGE:-ghcr.io/wess09/azurpillotcloudserver:latest}
+    image: ${MAIN_IMAGE:-ghcr.io/wess09/azurpillotcloudserver:latest}
     build: .
     depends_on:
       postgres:
@@ -23,12 +23,11 @@ services:
       LISTEN_ADDR: ":8080"
       DATABASE_URL: postgres://apcloud:apcloud@postgres:5432/apcloud?sslmode=disable
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
-      STATISTICS_TOKEN: ${STATISTICS_TOKEN:-}
-      RECOGNIZER_URL: ${RECOGNIZER_URL:-}
-      WORKER_TOKEN: ${WORKER_TOKEN:-}
-      LEGACY_UPLOAD_PUBLIC_URL: ${LEGACY_UPLOAD_PUBLIC_URL:-}
-      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-10485760}
-      MAX_GROUP_BYTES: ${MAX_GROUP_BYTES:-524288000}
+      ADMIN_ORIGINS: ${ADMIN_ORIGINS:-https://admin.azurpilot.com}
+      PUBLIC_ORIGINS: ${PUBLIC_ORIGINS:-https://stats.azurpilot.com}
+      TEMPLATE_EVENT_TOKEN: ${TEMPLATE_EVENT_TOKEN:-}
+      V3_ENABLED: ${V3_ENABLED:-true}
+      AGG_INTERVAL: ${AGG_INTERVAL:-1h}
       LOG_LEVEL: info
       RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-5000}
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-8000}

@@ -1,58 +1,15 @@
-// Package v3db 定义 v3 委托/科研统计与模板服务器共用的 GORM 模型。
+// Package v3db 定义 主服务委托/科研统计的 GORM 模型。
 //
 // 所有访问均通过 GORM 链式 API 完成，不写裸 SQL。表名显式声明，
 // 避免依赖 GORM 的复数推导，便于迁移与运维排查。
 package v3db
 
-import (
-	"database/sql/driver"
-	"encoding/json"
-	"fmt"
-	"time"
-)
+import "time"
 
 const (
 	SceneCommission = "commission"
 	SceneResearch   = "research"
-
-	KindFormal    = "formal"
-	KindTemporary = "temporary"
 )
-
-// JSONB 是 jsonb 列的轻量实现，避免为了一个字段引入整组 datatypes 依赖。
-type JSONB []byte
-
-func (j JSONB) Value() (driver.Value, error) {
-	if len(j) == 0 {
-		return "{}", nil
-	}
-	return string(j), nil
-}
-
-func (j *JSONB) Scan(v any) error {
-	switch x := v.(type) {
-	case nil:
-		*j = nil
-	case []byte:
-		*j = append((*j)[:0], x...)
-	case string:
-		*j = append((*j)[:0], x...)
-	default:
-		return fmt.Errorf("unsupported JSONB value %T", v)
-	}
-	return nil
-}
-
-// MarshalJSON 让 JSONB 在 API 输出中保持原始 JSON，而不是 base64。
-func (j JSONB) MarshalJSON() ([]byte, error) {
-	if len(j) == 0 {
-		return []byte("null"), nil
-	}
-	if !json.Valid(j) {
-		return nil, fmt.Errorf("invalid JSONB payload")
-	}
-	return j, nil
-}
 
 // DropEvent 是一条委托或科研完成记录；record_id 全局唯一，作为幂等键。
 type DropEvent struct {
@@ -159,14 +116,6 @@ type DirtyHour struct {
 
 func (DirtyHour) TableName() string { return "aggregation_dirty_hours" }
 
-// SchemaGuard 用于让多个实例的 AutoMigrate 串行执行。
-type SchemaGuard struct {
-	ID         uint8     `gorm:"column:id;primaryKey"`
-	MigratedAt time.Time `gorm:"column:migrated_at;not null"`
-}
-
-func (SchemaGuard) TableName() string { return "schema_guard" }
-
 // CommissionCatalog 提供委托时长，用于 amount_per_hour。
 type CommissionCatalog struct {
 	Comm              string `gorm:"column:comm;type:varchar(128);primaryKey"`
@@ -179,97 +128,9 @@ type CommissionCatalog struct {
 
 func (CommissionCatalog) TableName() string { return "commission_catalog" }
 
-// ContentRelease 记录每次模板发布；manifest 与 catalog 用于计算增量。
-type ContentRelease struct {
-	Revision        uint64    `gorm:"column:revision;primaryKey;autoIncrement:false"`
-	CreatedAt       time.Time `gorm:"column:created_at;not null"`
-	Note            string    `gorm:"column:note;type:varchar(256);not null;default:''"`
-	ManifestSHA256  string    `gorm:"column:manifest_sha256;type:char(64);not null;default:''"`
-	Signature       string    `gorm:"column:signature;type:varchar(128);not null;default:''"`
-	MatchThresholds JSONB     `gorm:"column:match_thresholds;type:jsonb;not null;default:'{}'"`
-	Catalog         JSONB     `gorm:"column:catalog;type:jsonb;not null;default:'[]'"`
-	Deployed        bool      `gorm:"column:deployed;not null;default:false"`
-	WorkerURL       string    `gorm:"column:worker_url;type:varchar(256);not null;default:''"`
-}
-
-func (ContentRelease) TableName() string { return "content_releases" }
-
-// Template 是模板服务器的当前工作集；发布时冻结为 ContentRelease.Catalog。
-type Template struct {
-	ID           uint64    `gorm:"column:id;primaryKey;autoIncrement"`
-	Key          string    `gorm:"column:key;type:varchar(128);not null;uniqueIndex"`
-	Name         string    `gorm:"column:name;type:varchar(128);not null"`
-	Item         string    `gorm:"column:item;type:varchar(128);not null;index"`
-	Tag          string    `gorm:"column:tag;type:varchar(32);not null;default:''"`
-	SceneContext string    `gorm:"column:scene_context;type:varchar(32);not null;default:'all'"`
-	Kind         string    `gorm:"column:kind;type:varchar(16);not null;default:'formal'"`
-	SHA256       string    `gorm:"column:sha256;type:char(64);not null;index"`
-	IconSHA256   string    `gorm:"column:icon_sha256;type:char(64);not null;index"`
-	Icon         []byte    `gorm:"column:icon;type:bytea;not null"`
-	Enabled      bool      `gorm:"column:enabled;not null;default:true;index"`
-	CreatedAt    time.Time `gorm:"column:created_at;not null"`
-	UpdatedAt    time.Time `gorm:"column:updated_at;not null"`
-}
-
-func (Template) TableName() string { return "templates" }
-
-// TemplateState 是单例发布指针。
-type TemplateState struct {
-	ID              uint8  `gorm:"column:id;primaryKey"`
-	CurrentRevision uint64 `gorm:"column:current_revision;not null;default:0"`
-	PublicBase      string `gorm:"column:public_base;type:varchar(256);not null;default:''"`
-}
-
-func (TemplateState) TableName() string { return "template_state" }
-
-// UnknownTemplate 是客户端上传后按感知哈希聚合出的未知模板聚类。
-// ClusterKey 由感知哈希派生，同一图标的不同上传会落到同一行。
-type UnknownTemplate struct {
-	ClusterKey  string    `gorm:"column:cluster_key;type:varchar(128);primaryKey"`
-	Scene       string    `gorm:"column:scene;type:varchar(32);not null;default:'all'"`
-	PHash       string    `gorm:"column:phash;type:char(16);not null;index"`
-	SHA256      string    `gorm:"column:sha256;type:char(64);not null;index"`
-	Icon        []byte    `gorm:"column:icon;type:bytea;not null"`
-	Occurrences int64     `gorm:"column:occurrences;not null;default:0"`
-	Status      string    `gorm:"column:status;type:varchar(16);not null;default:'pending';index"`
-	Item        string    `gorm:"column:item;type:varchar(128);not null;default:''"`
-	Tag         string    `gorm:"column:tag;type:varchar(32);not null;default:''"`
-	Source      string    `gorm:"column:source;type:varchar(32);not null;default:'client'"`
-	Client      string    `gorm:"column:client;type:varchar(64);not null;default:''"`
-	FirstSeenAt time.Time `gorm:"column:first_seen_at;not null"`
-	LastSeenAt  time.Time `gorm:"column:last_seen_at;not null"`
-}
-
-func (UnknownTemplate) TableName() string { return "unknown_templates" }
-
-// UnknownMapping 记录某次发布中未知聚类到物品的映射；同一聚类可保留多次历史。
-type UnknownMapping struct {
-	ID         uint64 `gorm:"column:id;primaryKey;autoIncrement"`
-	Revision   uint64 `gorm:"column:revision;not null;index"`
-	ClusterKey string `gorm:"column:cluster_key;type:varchar(128);not null;index"`
-	Item       string `gorm:"column:item;type:varchar(128);not null"`
-	Tag        string `gorm:"column:tag;type:varchar(32);not null;default:''"`
-}
-
-func (UnknownMapping) TableName() string { return "unknown_mappings" }
-
-type UnknownClusterAlias struct {
-	FromKey  string `gorm:"column:from_key;type:varchar(128);primaryKey"`
-	ToKey    string `gorm:"column:to_key;type:varchar(128);not null"`
-	Revision uint64 `gorm:"column:revision;not null"`
-}
-
-func (UnknownClusterAlias) TableName() string { return "unknown_cluster_aliases" }
-
+// AllModels declares only main-service statistics and small mapping/status metadata.
 func AllModels() []any {
-	return []any{
-		&DropEvent{}, &CommissionItem{}, &ResearchItem{},
-		&CommissionHourly{}, &CommissionItemHourly{},
-		&ResearchHourly{}, &ResearchItemHourly{},
-		&DirtyHour{}, &SchemaGuard{},
-		&CommissionCatalog{},
-		&ContentRelease{}, &Template{}, &TemplateState{},
-		&UnknownTemplate{}, &UnknownMapping{}, &UnknownClusterAlias{},
-		&TemplateSyncState{}, &TemplateItemMapping{}, &TemplateEventReceipt{},
-	}
+	return []any{&DropEvent{}, &CommissionItem{}, &ResearchItem{},
+		&CommissionHourly{}, &CommissionItemHourly{}, &ResearchHourly{}, &ResearchItemHourly{},
+		&DirtyHour{}, &CommissionCatalog{}, &TemplateSyncState{}, &TemplateItemMapping{}, &TemplateEventReceipt{}}
 }

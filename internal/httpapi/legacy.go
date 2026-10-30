@@ -10,7 +10,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -162,28 +161,6 @@ func legacyPublic(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
-}
-
-func (s *Server) handleLegacyUploadRedirect(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		writeError(w, r, errMethodNotAllowed("POST"))
-		return
-	}
-	u, err := url.Parse(s.deps.Cfg.LegacyUploadURL)
-	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
-		writeError(w, r, errServiceUnavailable())
-		return
-	}
-	if u.Path == "" || u.Path == "/" {
-		u.Path = "/api/upload"
-	}
-	query := u.Query()
-	for k, v := range r.URL.Query() {
-		query[k] = v
-	}
-	u.RawQuery = query.Encode()
-	w.Header().Set("Cache-Control", "no-store")
-	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 }
 
 func (s *Server) writeLegacyCl1(w http.ResponseWriter, r *http.Request, response cl1Response) {

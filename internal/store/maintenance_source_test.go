@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"gorm.io/gorm/clause"
 	"testing"
 	"time"
 )
@@ -10,7 +11,10 @@ func TestOfficialMaintenancePrecedenceAndFailurePersistence(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	cleanup := func() {
-		_, err := s.Pool.Exec(ctx, `DELETE FROM maintenance_schedules WHERE server='cn'; DELETE FROM maintenance_sources WHERE server='cn'`)
+		err := s.DB.WithContext(ctx).Where(clause.Eq{Column: "server", Value: "cn"}).Delete(&MaintenanceSchedule{}).Error
+		if err == nil {
+			err = s.DB.WithContext(ctx).Where(clause.Eq{Column: "server", Value: "cn"}).Delete(&OfficialMaintenance{}).Error
+		}
 		if err != nil {
 			t.Error(err)
 		}

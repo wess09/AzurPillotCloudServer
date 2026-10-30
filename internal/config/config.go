@@ -6,6 +6,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -38,13 +39,6 @@ type Config struct {
 	DatabaseURL string
 	// AdminToken 为管理接口的 Bearer Token；为空时管理接口整体关闭。
 	AdminToken string
-	// StatisticsToken authenticates B's result, candidate and control requests.
-	StatisticsToken      string
-	RecognizerURL        string
-	WorkerToken          string
-	StatisticsFileBytes  int64
-	StatisticsGroupBytes int64
-	LegacyUploadURL      string
 	// LogLevel 为 slog 级别：debug、info、warn、error。
 	LogLevel string
 
@@ -84,6 +78,9 @@ type Config struct {
 	// TemplateEventToken authenticates mapping/status notifications only. No template traffic is proxied.
 	TemplateEventToken string
 
+	AdminOrigins  []string
+	PublicOrigins []string
+
 	Cloudflare Cloudflare
 }
 
@@ -93,12 +90,6 @@ func Load() (Config, error) {
 		ListenAddr:              env("LISTEN_ADDR", ":8080"),
 		DatabaseURL:             env("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/apcloud?sslmode=disable"),
 		AdminToken:              env("ADMIN_TOKEN", ""),
-		StatisticsToken:         env("STATISTICS_TOKEN", ""),
-		LegacyUploadURL:         env("LEGACY_UPLOAD_PUBLIC_URL", ""),
-		RecognizerURL:           env("RECOGNIZER_URL", ""),
-		WorkerToken:             env("WORKER_TOKEN", ""),
-		StatisticsFileBytes:     int64(envInt("MAX_FILE_BYTES", 10<<20)),
-		StatisticsGroupBytes:    int64(envInt("MAX_GROUP_BYTES", 500<<20)),
 		LogLevel:                env("LOG_LEVEL", "info"),
 		RequestTimeout:          envDuration("REQUEST_TIMEOUT", 15*time.Second),
 		ShutdownGrace:           envDuration("SHUTDOWN_GRACE", 30*time.Second),
@@ -117,6 +108,18 @@ func Load() (Config, error) {
 		V3Enabled:               env("V3_ENABLED", "true") != "false",
 		AggInterval:             envDuration("AGG_INTERVAL", time.Hour),
 		TemplateEventToken:      env("TEMPLATE_EVENT_TOKEN", ""),
+	}
+	cfg.AdminOrigins = strings.Split(env("ADMIN_ORIGINS", "https://admin.azurpilot.com"), ",")
+	cfg.PublicOrigins = strings.Split(env("PUBLIC_ORIGINS", "https://stats.azurpilot.com"), ",")
+	for _, origins := range [][]string{cfg.AdminOrigins, cfg.PublicOrigins} {
+		for i, origin := range origins {
+			origin = strings.TrimSpace(origin)
+			u, err := url.Parse(origin)
+			if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+				return cfg, fmt.Errorf("invalid browser origin %q", origin)
+			}
+			origins[i] = origin
+		}
 	}
 	cfg.Cloudflare = Cloudflare{
 		AccountID:       env("CF_ACCOUNT_ID", ""),
@@ -137,9 +140,6 @@ func Load() (Config, error) {
 	if cfg.CacheRefreshInterval > cfg.CacheTTL {
 		// 保活间隔大于 TTL 会让缓存永远靠请求触发刷新，收紧到 TTL 以内。
 		cfg.CacheRefreshInterval = cfg.CacheTTL
-	}
-	if cfg.StatisticsFileBytes < 8 || cfg.StatisticsGroupBytes < cfg.StatisticsFileBytes {
-		return cfg, fmt.Errorf("invalid statistics file/group limits")
 	}
 	if cfg.MaintenanceSyncInterval < time.Minute || cfg.MaintenanceSyncTimeout <= 0 || cfg.MaintenanceSyncTimeout > 12*time.Second {
 		return cfg, fmt.Errorf("维护同步间隔至少 1m，超时需在 0–12s 之间")

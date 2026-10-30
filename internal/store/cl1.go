@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"ap-cloud-server/internal/database"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Cl1Outcome 是 CL1 提交事务的业务结果。
@@ -53,89 +56,56 @@ type Cl1Record struct {
 //     首次成功时与去重记录一起原子提交。
 //
 // 返回 (结果, 需要返回给客户端的响应体, error)。
+// Reserving the request ID first serializes concurrent retries before any
+// snapshot mutation. A stale snapshot rolls back the reservation as well.
 func (s *Store) SubmitCl1(ctx context.Context, rec Cl1Record, bodyHash string, responseJSON []byte) (Cl1Outcome, []byte, error) {
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		return 0, nil, fmt.Errorf("开启事务失败: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }() // 提交后调用为无害空操作。
-
-	// 1. 查询 request_id 去重结果。
-	var storedHash string
-	var storedResponse []byte
-	err = tx.QueryRow(ctx,
-		`SELECT body_hash, response FROM cl1_dedup WHERE request_id = $1`, rec.RequestID,
-	).Scan(&storedHash, &storedResponse)
-	switch {
-	case err == nil:
-		if storedHash == bodyHash {
-			return Cl1Duplicate, storedResponse, nil
+	outcome, payload := Cl1Accepted, responseJSON
+	stale := errors.New("stale snapshot")
+	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		dedup := Cl1Dedup{RequestID: rec.RequestID, DeviceID: rec.DeviceID, InstanceID: rec.InstanceID, BodyHash: bodyHash, Response: datatypes.JSON(responseJSON), ExpiresAt: time.Now().UTC().Add(s.DedupTTL)}
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&dedup)
+		if result.Error != nil {
+			return result.Error
 		}
-		return Cl1RequestConflict, nil, nil
-	case !errors.Is(err, pgx.ErrNoRows):
-		return 0, nil, fmt.Errorf("查询去重记录失败: %w", err)
-	}
-
-	// 2. 覆盖写快照；WHERE 条件保证旧快照不覆盖新快照。
-	tag, err := tx.Exec(ctx, `
-		INSERT INTO cl1_snapshots (
-			device_id, instance_id, month, collected_at,
-			battle_count, battle_rounds, sortie_cost,
-			akashi_encounters, akashi_ap,
-			akashi_probability, average_stamina, net_stamina_gain
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (device_id, instance_id, month) DO UPDATE SET
-			collected_at       = EXCLUDED.collected_at,
-			battle_count       = EXCLUDED.battle_count,
-			battle_rounds      = EXCLUDED.battle_rounds,
-			sortie_cost        = EXCLUDED.sortie_cost,
-			akashi_encounters  = EXCLUDED.akashi_encounters,
-			akashi_ap          = EXCLUDED.akashi_ap,
-			akashi_probability = EXCLUDED.akashi_probability,
-			average_stamina    = EXCLUDED.average_stamina,
-			net_stamina_gain   = EXCLUDED.net_stamina_gain,
-			updated_at         = now()
-		WHERE cl1_snapshots.collected_at <= EXCLUDED.collected_at
-		AND (NOT $13::boolean OR (cl1_snapshots.battle_count<=EXCLUDED.battle_count AND cl1_snapshots.akashi_encounters<=EXCLUDED.akashi_encounters AND cl1_snapshots.akashi_ap<=EXCLUDED.akashi_ap))`,
-		rec.DeviceID, rec.InstanceID, rec.Month, rec.CollectedAt,
-		rec.BattleCount, rec.BattleRounds, rec.SortieCost,
-		rec.AkashiEncounters, rec.AkashiAP,
-		rec.AkashiProbability, rec.AverageStamina, rec.NetStaminaGain, rec.Legacy,
-	)
-	if err != nil {
-		return 0, nil, fmt.Errorf("写入快照失败: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
+		if result.RowsAffected == 0 {
+			var previous Cl1Dedup
+			if err := tx.Take(&previous, clause.Eq{Column: "request_id", Value: rec.RequestID}).Error; err != nil {
+				return err
+			}
+			if previous.BodyHash == bodyHash {
+				outcome, payload = Cl1Duplicate, []byte(previous.Response)
+			} else {
+				outcome, payload = Cl1RequestConflict, nil
+			}
+			return nil
+		}
+		row := Cl1Snapshot{DeviceID: rec.DeviceID, InstanceID: rec.InstanceID, Month: rec.Month, CollectedAt: rec.CollectedAt, BattleCount: rec.BattleCount, BattleRounds: rec.BattleRounds, SortieCost: rec.SortieCost, AkashiEncounters: rec.AkashiEncounters, AkashiAP: rec.AkashiAP, AkashiProbability: rec.AkashiProbability, AverageStamina: rec.AverageStamina, NetStaminaGain: rec.NetStaminaGain}
+		conditions := []clause.Expression{clause.Lte{Column: clause.Column{Table: row.TableName(), Name: "collected_at"}, Value: clause.Column{Table: "excluded", Name: "collected_at"}}}
+		if rec.Legacy {
+			for _, column := range []string{"battle_count", "akashi_encounters", "akashi_ap"} {
+				conditions = append(conditions, clause.Lte{Column: clause.Column{Table: row.TableName(), Name: column}, Value: clause.Column{Table: "excluded", Name: column}})
+			}
+		}
+		result = tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "device_id"}, {Name: "instance_id"}, {Name: "month"}},
+			DoUpdates: clause.AssignmentColumns([]string{"collected_at", "battle_count", "battle_rounds", "sortie_cost", "akashi_encounters", "akashi_ap", "akashi_probability", "average_stamina", "net_stamina_gain", "updated_at"}),
+			Where:     clause.Where{Exprs: conditions},
+		}).Create(&row)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return stale
+		}
+		return nil
+	})
+	if errors.Is(err, stale) {
 		return Cl1StaleSnapshot, nil, nil
 	}
-
-	// 3. 登记去重结果；并发同 ID 请求撞主键时回读已有结果。
-	tag, err = tx.Exec(ctx, `
-		INSERT INTO cl1_dedup (request_id, device_id, instance_id, body_hash, response, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (request_id) DO NOTHING`,
-		rec.RequestID, rec.DeviceID, rec.InstanceID, bodyHash, responseJSON, time.Now().Add(s.DedupTTL),
-	)
 	if err != nil {
-		return 0, nil, fmt.Errorf("写入去重记录失败: %w", err)
+		return 0, nil, fmt.Errorf("保存 CL1 事务失败: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		err = tx.QueryRow(ctx,
-			`SELECT body_hash, response FROM cl1_dedup WHERE request_id = $1`, rec.RequestID,
-		).Scan(&storedHash, &storedResponse)
-		if err != nil {
-			return 0, nil, fmt.Errorf("回读去重记录失败: %w", err)
-		}
-		if storedHash == bodyHash {
-			return Cl1Duplicate, storedResponse, nil
-		}
-		return Cl1RequestConflict, nil, nil
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, nil, fmt.Errorf("提交事务失败: %w", err)
-	}
-	return Cl1Accepted, responseJSON, nil
+	return outcome, payload, nil
 }
 
 // Cl1Row 是一条已存储的月度快照。
@@ -154,28 +124,13 @@ type Cl1Row struct {
 
 // ListCl1Snapshots 返回指定设备的月度快照（按更新时间倒序）。
 func (s *Store) ListCl1Snapshots(ctx context.Context, deviceID, month string, limit int) ([]Cl1Row, error) {
-	rows, err := s.Pool.Query(ctx, `
-		SELECT device_id, instance_id, month, collected_at,
-		       battle_count, akashi_encounters, akashi_ap,
-		       akashi_probability, average_stamina, updated_at
-		FROM cl1_snapshots
-		WHERE device_id = $1 AND month = $2
-		ORDER BY updated_at DESC
-		LIMIT $3`, deviceID, month, limit)
-	if err != nil {
-		return nil, fmt.Errorf("查询快照失败: %w", err)
+	var rows []Cl1Snapshot
+	if err := s.DB.WithContext(ctx).Where(clause.Eq{Column: "device_id", Value: deviceID}, clause.Eq{Column: "month", Value: month}).Order(database.Desc("updated_at")).Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
 	}
-	defer rows.Close()
-
-	var out []Cl1Row
-	for rows.Next() {
-		var r Cl1Row
-		if err := rows.Scan(&r.DeviceID, &r.InstanceID, &r.Month, &r.CollectedAt,
-			&r.BattleCount, &r.AkashiEncounters, &r.AkashiAP,
-			&r.AkashiProbability, &r.AverageStamina, &r.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("解析快照失败: %w", err)
-		}
-		out = append(out, r)
+	out := make([]Cl1Row, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, Cl1Row{DeviceID: r.DeviceID, InstanceID: r.InstanceID, Month: r.Month, CollectedAt: r.CollectedAt, BattleCount: r.BattleCount, AkashiEncounters: r.AkashiEncounters, AkashiAP: r.AkashiAP, AkashiProbability: r.AkashiProbability, AverageStamina: r.AverageStamina, UpdatedAt: r.UpdatedAt})
 	}
-	return out, rows.Err()
+	return out, nil
 }

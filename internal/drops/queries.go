@@ -7,7 +7,10 @@ import (
 	"sort"
 	"time"
 
+	"ap-cloud-server/internal/database"
 	"ap-cloud-server/internal/v3db"
+	"gorm.io/gen/field"
+	"gorm.io/gorm/clause"
 )
 
 // MinCommissionSamples 是公开展示委托统计的最小样本量。
@@ -99,21 +102,20 @@ func (s *Service) Commission(ctx context.Context, q CommissionQuery) ([]Commissi
 	if !q.To.After(q.From) {
 		return nil, ErrInvalidRange
 	}
-	base := s.db.WithContext(ctx).Model(&v3db.CommissionHourly{}).
-		Select("comm, status, SUM(samples) AS samples").
-		Where("hour >= ? AND hour < ?", q.From.UTC(), q.To.UTC())
+	base := database.Project(s.db.WithContext(ctx).Model(&v3db.CommissionHourly{}), field.NewString("", "comm"), field.NewInt16("", "status"), field.NewInt64("", "samples").Sum().As("samples")).
+		Where(clause.Gte{Column: "hour", Value: q.From.UTC()}, clause.Lt{Column: "hour", Value: q.To.UTC()})
 	if q.Server != "" {
-		base = base.Where("server = ?", q.Server)
+		base = base.Where(clause.Eq{Column: "server", Value: q.Server})
 	}
 	if q.Comm != "" {
-		base = base.Where("comm = ?", q.Comm)
+		base = base.Where(clause.Eq{Column: "comm", Value: q.Comm})
 	}
 	if q.Status != nil {
-		base = base.Where("status = ?", *q.Status)
+		base = base.Where(clause.Eq{Column: "status", Value: *q.Status})
 	}
 	var samples []commissionSampleRow
-	if err := base.Group("comm, status").
-		Having("SUM(samples) > ?", MinCommissionSamples).
+	if err := database.Group(base, "comm", "status").
+		Having(field.NewInt64("", "samples").Sum().Gt(MinCommissionSamples)).
 		Scan(&samples).Error; err != nil {
 		return nil, err
 	}
@@ -131,27 +133,26 @@ func (s *Service) Commission(ctx context.Context, q CommissionQuery) ([]Commissi
 	}
 	catalogByComm := make(map[string]v3db.CommissionCatalog, len(comms))
 	var catalog []v3db.CommissionCatalog
-	if err := s.db.WithContext(ctx).Where("comm IN ?", comms).Find(&catalog).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where(field.NewString("", "comm").In(comms...)).Find(&catalog).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range catalog {
 		catalogByComm[row.Comm] = row
 	}
 
-	itemQ := s.db.WithContext(ctx).Model(&v3db.CommissionItemHourly{}).
-		Select("comm, status, item, tag, SUM(occurrences) AS occurrences, SUM(amount) AS amount").
-		Where("hour >= ? AND hour < ?", q.From.UTC(), q.To.UTC())
+	itemQ := database.Project(s.db.WithContext(ctx).Model(&v3db.CommissionItemHourly{}), field.NewString("", "comm"), field.NewInt16("", "status"), field.NewString("", "item"), field.NewString("", "tag"), field.NewInt64("", "occurrences").Sum().As("occurrences"), field.NewInt64("", "amount").Sum().As("amount")).
+		Where(clause.Gte{Column: "hour", Value: q.From.UTC()}, clause.Lt{Column: "hour", Value: q.To.UTC()})
 	if q.Server != "" {
-		itemQ = itemQ.Where("server = ?", q.Server)
+		itemQ = itemQ.Where(clause.Eq{Column: "server", Value: q.Server})
 	}
 	if q.Comm != "" {
-		itemQ = itemQ.Where("comm = ?", q.Comm)
+		itemQ = itemQ.Where(clause.Eq{Column: "comm", Value: q.Comm})
 	}
 	if q.Status != nil {
-		itemQ = itemQ.Where("status = ?", *q.Status)
+		itemQ = itemQ.Where(clause.Eq{Column: "status", Value: *q.Status})
 	}
 	var items []commissionItemRow
-	if err := itemQ.Group("comm, status, item, tag").Scan(&items).Error; err != nil {
+	if err := database.Group(itemQ, "comm", "status", "item", "tag").Scan(&items).Error; err != nil {
 		return nil, err
 	}
 
@@ -235,20 +236,19 @@ func (s *Service) Research(ctx context.Context, q ResearchQuery) ([]ResearchGrou
 	if !q.To.After(q.From) {
 		return nil, ErrInvalidRange
 	}
-	base := s.db.WithContext(ctx).Model(&v3db.ResearchHourly{}).
-		Select("series, project, SUM(samples) AS samples").
-		Where("hour >= ? AND hour < ?", q.From.UTC(), q.To.UTC())
+	base := database.Project(s.db.WithContext(ctx).Model(&v3db.ResearchHourly{}), field.NewInt("", "series"), field.NewString("", "project"), field.NewInt64("", "samples").Sum().As("samples")).
+		Where(clause.Gte{Column: "hour", Value: q.From.UTC()}, clause.Lt{Column: "hour", Value: q.To.UTC()})
 	if q.Server != "" {
-		base = base.Where("server = ?", q.Server)
+		base = base.Where(clause.Eq{Column: "server", Value: q.Server})
 	}
 	if q.Series > 0 {
-		base = base.Where("series = ?", q.Series)
+		base = base.Where(clause.Eq{Column: "series", Value: q.Series})
 	}
 	if q.Project != "" {
-		base = base.Where("project = ?", q.Project)
+		base = base.Where(clause.Eq{Column: "project", Value: q.Project})
 	}
 	var samples []researchSampleRow
-	if err := base.Group("series, project").Scan(&samples).Error; err != nil {
+	if err := database.Group(base, "series", "project").Scan(&samples).Error; err != nil {
 		return nil, err
 	}
 	if len(samples) == 0 {
@@ -265,26 +265,25 @@ func (s *Service) Research(ctx context.Context, q ResearchQuery) ([]ResearchGrou
 			Items: []ResearchItemStat{},
 		}
 	}
-	itemQ := s.db.WithContext(ctx).Model(&v3db.ResearchItemHourly{}).
-		Select("series, project, item, tag, SUM(occurrences) AS occurrences, SUM(amount) AS amount").
-		Where("hour >= ? AND hour < ?", q.From.UTC(), q.To.UTC())
+	itemQ := database.Project(s.db.WithContext(ctx).Model(&v3db.ResearchItemHourly{}), field.NewInt("", "series"), field.NewString("", "project"), field.NewString("", "item"), field.NewString("", "tag"), field.NewInt64("", "occurrences").Sum().As("occurrences"), field.NewInt64("", "amount").Sum().As("amount")).
+		Where(clause.Gte{Column: "hour", Value: q.From.UTC()}, clause.Lt{Column: "hour", Value: q.To.UTC()})
 	if q.Server != "" {
-		itemQ = itemQ.Where("server = ?", q.Server)
+		itemQ = itemQ.Where(clause.Eq{Column: "server", Value: q.Server})
 	}
 	if q.Series > 0 {
-		itemQ = itemQ.Where("series = ?", q.Series)
+		itemQ = itemQ.Where(clause.Eq{Column: "series", Value: q.Series})
 	}
 	if q.Project != "" {
-		itemQ = itemQ.Where("project = ?", q.Project)
+		itemQ = itemQ.Where(clause.Eq{Column: "project", Value: q.Project})
 	}
 	if q.Item != "" {
-		itemQ = itemQ.Where("item = ?", q.Item)
+		itemQ = itemQ.Where(clause.Eq{Column: "item", Value: q.Item})
 	}
 	if q.Tag != "" {
-		itemQ = itemQ.Where("tag = ?", q.Tag)
+		itemQ = itemQ.Where(clause.Eq{Column: "tag", Value: q.Tag})
 	}
 	var items []researchItemRow
-	if err := itemQ.Group("series, project, item, tag").Scan(&items).Error; err != nil {
+	if err := database.Group(itemQ, "series", "project", "item", "tag").Scan(&items).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range items {
@@ -329,14 +328,13 @@ func (s *Service) CommissionOptions(ctx context.Context, from, to time.Time, ser
 	if !to.After(from) {
 		return nil, ErrInvalidRange
 	}
-	q := s.db.WithContext(ctx).Model(&v3db.CommissionHourly{}).
-		Select("comm, status, SUM(samples) AS samples").
-		Where("hour >= ? AND hour < ?", from.UTC(), to.UTC())
+	q := database.Project(s.db.WithContext(ctx).Model(&v3db.CommissionHourly{}), field.NewString("", "comm"), field.NewInt16("", "status"), field.NewInt64("", "samples").Sum().As("samples")).
+		Where(clause.Gte{Column: "hour", Value: from.UTC()}, clause.Lt{Column: "hour", Value: to.UTC()})
 	if server != "" {
-		q = q.Where("server = ?", server)
+		q = q.Where(clause.Eq{Column: "server", Value: server})
 	}
 	var rows []commissionSampleRow
-	if err := q.Group("comm, status").Order("comm ASC, status ASC").Scan(&rows).Error; err != nil {
+	if err := database.Group(q, "comm", "status").Order(database.Asc("comm")).Order(database.Asc("status")).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	comms := make([]string, 0, len(rows))
@@ -350,7 +348,7 @@ func (s *Service) CommissionOptions(ctx context.Context, from, to time.Time, ser
 	catalogByComm := make(map[string]v3db.CommissionCatalog, len(comms))
 	if len(comms) > 0 {
 		var catalog []v3db.CommissionCatalog
-		if err := s.db.WithContext(ctx).Where("comm IN ?", comms).Find(&catalog).Error; err != nil {
+		if err := s.db.WithContext(ctx).Where(field.NewString("", "comm").In(comms...)).Find(&catalog).Error; err != nil {
 			return nil, err
 		}
 		for _, row := range catalog {
@@ -376,19 +374,18 @@ func (s *Service) ResearchOptions(ctx context.Context, from, to time.Time, serve
 	if !to.After(from) {
 		return nil, ErrInvalidRange
 	}
-	q := s.db.WithContext(ctx).Model(&v3db.ResearchHourly{}).
-		Select("series, project, SUM(samples) AS samples").
-		Where("hour >= ? AND hour < ?", from.UTC(), to.UTC())
+	q := database.Project(s.db.WithContext(ctx).Model(&v3db.ResearchHourly{}), field.NewInt("", "series"), field.NewString("", "project"), field.NewInt64("", "samples").Sum().As("samples")).
+		Where(clause.Gte{Column: "hour", Value: from.UTC()}, clause.Lt{Column: "hour", Value: to.UTC()})
 	if server != "" {
-		q = q.Where("server = ?", server)
+		q = q.Where(clause.Eq{Column: "server", Value: server})
 	}
 	var rows []researchSampleRow
-	if err := q.Group("series, project").Order("series ASC, project ASC").Scan(&rows).Error; err != nil {
+	if err := database.Group(q, "series", "project").Order(database.Asc("series")).Order(database.Asc("project")).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]ResearchOption, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, ResearchOption{Series: row.Series, Project: row.Project, Samples: row.Samples})
+		out = append(out, ResearchOption(row))
 	}
 	return out, nil
 }

@@ -16,53 +16,19 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    needs: [web]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-dist
-          path: internal
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
 
-  web:
-    name: 前端（管理后台 + 模板管理台）
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: |
-            web/package-lock.json
-            template-web/package-lock.json
-      - name: 安装依赖
-        run: |
-          npm --prefix web ci
-          npm --prefix template-web ci
-      - name: 类型检查与构建
-        run: |
-          npm --prefix web run build
-          npm --prefix template-web run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web-dist
-          path: |
-            internal/adminui/dist
-            internal/templateserver/webui/dist
-          retention-days: 3
-
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: [web]
     strategy:
       fail-fast: false
       matrix:
@@ -85,16 +51,13 @@ jobs:
     env:
       # windows / macos 无 service 容器，集成测试自动跳过。
       TEST_DATABASE_URL: ${{ matrix.os == 'ubuntu-latest' && 'postgres://postgres:postgres@localhost:55432/apcloud_test?sslmode=disable' || '' }}
+      TEMPLATE_TEST_DATABASE_URL: ${{ matrix.os == 'ubuntu-latest' && 'postgres://postgres:postgres@localhost:55432/apcloud_test?sslmode=disable' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-dist
-          path: internal
       - name: go vet
         run: go vet ./...
       - name: go test（含竞态检测与协程泄露检查）
@@ -103,7 +66,6 @@ jobs:
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
-    needs: [web]
     strategy:
       fail-fast: false
       matrix:
@@ -124,10 +86,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-dist
-          path: internal
       - name: 交叉编译
         env:
           GOOS: ${{ matrix.goos }}
@@ -143,7 +101,7 @@ jobs:
   docker:
     name: Docker 镜像
     runs-on: ubuntu-latest
-    needs: [lint, test, web]
+    needs: [lint, test]
     permissions:
       contents: read
       packages: write

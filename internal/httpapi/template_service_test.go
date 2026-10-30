@@ -5,8 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"ap-cloud-server/internal/statistics"
 )
 
 type unreadTemplateBody struct{}
@@ -15,8 +13,6 @@ func (unreadTemplateBody) Read([]byte) (int, error) { panic("main server read te
 
 func TestMainServerDoesNotExposeTemplateTransport(t *testing.T) {
 	server, _ := newTestServer(t, &fakeBackend{}, nil)
-	legacy := http.NewServeMux()
-	statistics.New(nil, "worker-token", "main-admin").Register(legacy)
 	routes := []struct{ method, path string }{
 		{"POST", "/api/v3/post/templates/unknown"},
 		{"POST", "/api/v3/post/unknown-candidates"},
@@ -38,7 +34,7 @@ func TestMainServerDoesNotExposeTemplateTransport(t *testing.T) {
 		{"POST", "/api/v1/admin/templates/rollback"},
 		{"POST", "/api/v1/admin/templates/test"},
 	}
-	for _, handler := range []http.Handler{server.Handler(), legacy} {
+	for _, handler := range []http.Handler{server.Handler()} {
 		for _, route := range routes {
 			request := httptest.NewRequest(route.method, route.path, unreadTemplateBody{})
 			request.Header.Set("Authorization", "Bearer main-admin")

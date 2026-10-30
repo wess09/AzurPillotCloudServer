@@ -1,5 +1,7 @@
-# 历史模板实现已停用
+# 模板服务已独立
 
-当前独立模板服务由 AzurPilotCloud 仓库部署。客户端与浏览器管理请求必须直接访问模板服务器，资源直接访问 Worker，主服务器仅接收映射与状态事件。
+本仓库不再包含 Go 模板服务器、模板 WebUI、图像存储、模板上传或管理代理。旧部署文件已移除。
 
-完整当前说明见 [直连接入](template-service-integration.md)。旧代理、共享模板管理、旧独立 Go 管理台说明不再适用，禁止按旧方式配置主服务器转发模板流量。
+实际服务位于独立 `AzurPilotCloud` 仓库；数据库通过 SQLAlchemy/Alembic 管理。统一管理页面位于新建 `AzurPilotCloudWeb` 仓库，在 Cloudflare 托管。
+
+参阅 [独立服务接入](template-service-integration.md) 和 [管理协议](admin-websocket.md)。

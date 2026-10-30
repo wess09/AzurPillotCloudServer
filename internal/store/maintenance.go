@@ -2,14 +2,13 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"sort"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm/clause"
 )
 
-// Maintenance 是一条区服维护计划。
 type Maintenance struct {
 	Server    string     `json:"server"`
 	Name      string     `json:"name"`
@@ -20,99 +19,93 @@ type Maintenance struct {
 	SourceURL string     `json:"source_url,omitempty"`
 }
 
-// Both readers use the same precedence: an active manual override wins; an
-// expired manual row does not hide a newly announced official schedule.
-const maintenancePlans = `(
- SELECT server,name,starts_at,ends_at,updated_at,'manual' AS source,'' AS source_url,0 AS priority
- FROM maintenance_schedules
- UNION ALL
- SELECT server,name,starts_at,ends_at,synced_at,'official',source_url,1
- FROM maintenance_sources WHERE starts_at IS NOT NULL
-) AS plans`
-
-// UpsertMaintenance 保存一个区服的维护计划（覆盖式）。
 func (s *Store) UpsertMaintenance(ctx context.Context, m Maintenance) error {
-	tag, err := s.Pool.Exec(ctx, `
-		INSERT INTO maintenance_schedules (server, name, starts_at, ends_at, updated_at)
-		VALUES ($1, $2, $3, $4, now())
-		ON CONFLICT (server) DO UPDATE SET
-			name      = EXCLUDED.name,
-			starts_at = EXCLUDED.starts_at,
-			ends_at   = EXCLUDED.ends_at,
-			updated_at = now()`,
-		m.Server, m.Name, m.StartsAt, m.EndsAt,
-	)
-	if err != nil {
-		return fmt.Errorf("保存维护计划失败: %w", err)
+	if !validServer(m.Server) || m.EndsAt != nil && !m.EndsAt.After(m.StartsAt) {
+		return fmt.Errorf("invalid maintenance schedule")
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("保存维护计划未生效")
-	}
-	return nil
+	row := MaintenanceSchedule{Server: m.Server, Name: m.Name, StartsAt: m.StartsAt, EndsAt: m.EndsAt}
+	return s.DB.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "server"}}, DoUpdates: clause.AssignmentColumns([]string{"name", "starts_at", "ends_at", "updated_at"})}).Create(&row).Error
 }
 
-// LatestMaintenance 返回一个区服当前有效的维护安排：
-// 尚未结束（ends_at 为空或大于等于当前时间）的最新一条。
-// 没有安排时返回 (nil, nil)。
+func validServer(server string) bool {
+	return server == "cn" || server == "en" || server == "jp" || server == "tw"
+}
+func activePlan(m Maintenance, now time.Time) bool { return m.EndsAt == nil || !m.EndsAt.Before(now) }
+
+// There are at most four manual rows and one official row. Merge precedence in
+// domain code so it stays shared between admin and public readers.
+func (s *Store) plans(ctx context.Context) ([]Maintenance, error) {
+	var manual []MaintenanceSchedule
+	if err := s.DB.WithContext(ctx).Find(&manual).Error; err != nil {
+		return nil, err
+	}
+	out := make([]Maintenance, 0, len(manual)+1)
+	for _, row := range manual {
+		out = append(out, Maintenance{Server: row.Server, Name: row.Name, StartsAt: row.StartsAt, EndsAt: row.EndsAt, UpdatedAt: row.UpdatedAt, Source: "manual"})
+	}
+	source, err := s.MaintenanceSource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if source.Plan != nil {
+		out = append(out, *source.Plan)
+	}
+	now := time.Now().UTC()
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Server != b.Server {
+			return a.Server < b.Server
+		}
+		if activePlan(a, now) != activePlan(b, now) {
+			return activePlan(a, now)
+		}
+		if a.Source != b.Source {
+			return a.Source == "manual"
+		}
+		return a.StartsAt.After(b.StartsAt)
+	})
+	return out, nil
+}
+
 func (s *Store) LatestMaintenance(ctx context.Context, server string) (*Maintenance, error) {
-	row := s.Pool.QueryRow(ctx, `
-		SELECT server, name, starts_at, ends_at, updated_at, source, source_url
-		FROM `+maintenancePlans+`
-		WHERE server = $1 AND (ends_at IS NULL OR ends_at >= now())
-		ORDER BY priority, starts_at DESC
-		LIMIT 1`, server)
-
-	var m Maintenance
-	var endsAt *time.Time
-	err := row.Scan(&m.Server, &m.Name, &m.StartsAt, &endsAt, &m.UpdatedAt, &m.Source, &m.SourceURL)
-	if errors.Is(err, pgx.ErrNoRows) {
-		if server == "cn" {
-			var sourceError string
-			checkErr := s.Pool.QueryRow(ctx, `SELECT error FROM maintenance_sources WHERE server='cn'`).Scan(&sourceError)
-			if checkErr != nil && !errors.Is(checkErr, pgx.ErrNoRows) {
-				return nil, checkErr
-			}
-			if sourceError != "" {
-				return nil, fmt.Errorf("官方维护来源暂不可用: %s", sourceError)
-			}
-		}
-		return nil, nil
-	}
+	plans, err := s.plans(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("查询维护计划失败: %w", err)
+		return nil, err
 	}
-	m.EndsAt = endsAt
-	return &m, nil
+	for _, plan := range plans {
+		if plan.Server == server && activePlan(plan, time.Now().UTC()) {
+			return &plan, nil
+		}
+	}
+	if server == "cn" {
+		source, err := s.MaintenanceSource(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if source.Error != "" {
+			return nil, fmt.Errorf("官方维护来源暂不可用: %s", source.Error)
+		}
+	}
+	return nil, nil
 }
 
-// ListMaintenances 返回全部维护计划（含已结束），供管理端查看。
 func (s *Store) ListMaintenances(ctx context.Context) ([]Maintenance, error) {
-	rows, err := s.Pool.Query(ctx, `
-		SELECT DISTINCT ON (server) server, name, starts_at, ends_at, updated_at, source, source_url
-		FROM `+maintenancePlans+`
-		ORDER BY server, CASE WHEN ends_at IS NULL OR ends_at >= now() THEN 0 ELSE 1 END, priority`)
+	plans, err := s.plans(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("查询维护计划列表失败: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-
-	out := []Maintenance{}
-	for rows.Next() {
-		var m Maintenance
-		if err := rows.Scan(&m.Server, &m.Name, &m.StartsAt, &m.EndsAt, &m.UpdatedAt, &m.Source, &m.SourceURL); err != nil {
-			return nil, fmt.Errorf("解析维护计划失败: %w", err)
+	out := make([]Maintenance, 0, 4)
+	seen := make(map[string]bool)
+	for _, plan := range plans {
+		if !seen[plan.Server] {
+			seen[plan.Server] = true
+			out = append(out, plan)
 		}
-		out = append(out, m)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
-// DeleteMaintenance 删除一个区服的维护计划，返回是否确实删除了记录。
 func (s *Store) DeleteMaintenance(ctx context.Context, server string) (bool, error) {
-	tag, err := s.Pool.Exec(ctx,
-		`DELETE FROM maintenance_schedules WHERE server = $1`, server)
-	if err != nil {
-		return false, fmt.Errorf("删除维护计划失败: %w", err)
-	}
-	return tag.RowsAffected() > 0, nil
+	result := s.DB.WithContext(ctx).Where(clause.Eq{Column: "server", Value: server}).Delete(&MaintenanceSchedule{})
+	return result.RowsAffected > 0, result.Error
 }

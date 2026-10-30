@@ -1,16 +1,5 @@
-# 多阶段构建：前端（React）→ 后端（Go，内嵌前端产物）→ 运行镜像。
-# 国内构建可用 --build-arg NPM_REGISTRY=... --build-arg GOPROXY=... --build-arg RUNTIME_IMAGE=...
+# Backend only: frontend is built from the independent GitHub repository by Cloudflare.
 ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot
-
-FROM --platform=$BUILDPLATFORM node:22-alpine AS web
-
-ARG NPM_REGISTRY=https://registry.npmjs.org
-WORKDIR /web
-COPY web/package.json web/package-lock.json ./
-RUN npm config set registry "$NPM_REGISTRY" && npm ci
-COPY web/ ./
-# 覆盖 vite 配置的仓库内相对输出目录，产物落在镜像本层便于拷贝。
-RUN npm run build -- --outDir dist
 
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 
@@ -23,8 +12,6 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# 前端产物来自 web 构建阶段。
-COPY --from=web /web/dist internal/adminui/dist
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w -X ap-cloud-server/internal/version.Version=${VERSION}" \

@@ -21,14 +21,12 @@ import (
 	"syscall"
 	"time"
 
-	"ap-cloud-server/internal/adminui"
 	"ap-cloud-server/internal/config"
 	"ap-cloud-server/internal/drops"
 	"ap-cloud-server/internal/gateway"
 	"ap-cloud-server/internal/httpapi"
 	"ap-cloud-server/internal/maintenance"
 	"ap-cloud-server/internal/publish"
-	"ap-cloud-server/internal/statistics"
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
 	"ap-cloud-server/internal/templatesync"
@@ -67,30 +65,32 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer st.Close()
+	defer func() {
+		if err := st.Close(); err != nil {
+			logger.Warn("关闭数据库连接池失败", "err", err)
+		}
+	}()
 	logger.Info("数据库连接就绪")
 
-	// 1.1 v3 委托/科研统计（独立 GORM 连接池）。
+	// 1.1 委托/科研统计与核心业务共用一个 ORM 连接池。
 	var dropsSvc *drops.Service
 	var templateSync *templatesync.Service
 	templateWake := make(chan struct{}, 1)
 	if cfg.V3Enabled {
-		v3store, err := v3db.Open(ctx, cfg.DatabaseURL)
-		if err != nil {
+		if err := v3db.Migrate(ctx, st.DB); err != nil {
 			return err
 		}
-		dropsSvc = drops.NewService(v3store.DB)
-		templateSync = templatesync.New(v3store.DB, templateWake)
+		dropsSvc = drops.NewService(st.DB)
+		templateSync = templatesync.New(st.DB, templateWake)
 		aggCtx, aggCancel := context.WithCancel(context.WithoutCancel(ctx))
 		aggDone := make(chan struct{})
 		go func() {
 			defer close(aggDone)
-			drops.NewAggregator(v3store.DB, cfg.AggInterval, logger).WithWake(templateWake).Run(aggCtx)
+			drops.NewAggregator(st.DB, cfg.AggInterval, logger).WithWake(templateWake).Run(aggCtx)
 		}()
 		defer func() {
 			aggCancel()
 			<-aggDone
-			_ = v3store.Close()
 		}()
 		logger.Info("v3 委托/科研统计已启用", "agg_interval", cfg.AggInterval)
 	} else {
@@ -142,7 +142,6 @@ func run() error {
 	// 5. HTTP 服务。
 	srv := httpapi.New(httpapi.Deps{
 		Maintenance:  maintenanceSync,
-		Statistics:   statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes),
 		Drops:        dropsSvc,
 		TemplateSync: templateSync,
 		Cfg:          cfg,
@@ -150,7 +149,6 @@ func run() error {
 		Cache:        cache,
 		Pub:          publisher,
 		Logger:       logger,
-		AdminUI:      adminui.Handler(),
 	})
 	srv.Run(ctx)
 	defer srv.Close()

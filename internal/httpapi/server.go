@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	"ap-cloud-server/internal/adminws"
 	"ap-cloud-server/internal/config"
 	"ap-cloud-server/internal/drops"
 	"ap-cloud-server/internal/maintenance"
 	"ap-cloud-server/internal/publish"
-	"ap-cloud-server/internal/statistics"
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
 	"ap-cloud-server/internal/templatesync"
@@ -43,7 +43,6 @@ type MaintenanceSync interface {
 
 type Deps struct {
 	Maintenance MaintenanceSync
-	Statistics  *statistics.Service
 	// Drops 为 nil 时 v3 上报与查询接口返回 503。
 	Drops        *drops.Service
 	TemplateSync *templatesync.Service
@@ -52,16 +51,15 @@ type Deps struct {
 	Cache        *statuscache.Cache
 	Pub          *publish.Publisher
 	Logger       *slog.Logger
-	// AdminUI 是管理后台前端处理器（internal/adminui.Handler() 提供）；nil 时退回 404。
-	AdminUI http.Handler
 	// Now 可注入时钟，测试用；nil 时使用 time.Now。
 	Now func() time.Time
 }
 
 // Server 是装配完成的 HTTP 服务。
 type Server struct {
-	http *http.Server
-	deps Deps
+	http        *http.Server
+	adminSocket *adminws.Server
+	deps        Deps
 
 	store     Backend
 	cache     *statuscache.Cache
@@ -102,6 +100,8 @@ func New(deps Deps) *Server {
 		now:             deps.Now,
 	}
 
+	s.adminSocket = adminws.New(deps.Cfg.AdminToken, deps.Cfg.AdminOrigins, s.executeAdmin, s.adminSnapshot)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("POST /internal/v1/templates/events", s.handleTemplateEvent)
@@ -114,37 +114,13 @@ func New(deps Deps) *Server {
 	mux.HandleFunc("/api/force_update", legacyPublic(s.handleLegacyForceUpdate))
 	mux.HandleFunc("/api/v1/servers/{id}", legacyPublic(s.handleLegacyServer))
 	mux.HandleFunc("/api/maintenance", legacyPublic(s.handleLegacyMaintenance))
-	mux.HandleFunc("/api/upload", legacyPublic(s.handleLegacyUploadRedirect))
-	mux.HandleFunc("/api/upload/{$}", legacyPublic(s.handleLegacyUploadRedirect))
-	mux.HandleFunc("POST /api/v1/uploads/init", s.handleUploadGateway)
-	mux.HandleFunc("PUT /api/v1/uploads/{id}/files/{index}", s.handleUploadGateway)
-	mux.HandleFunc("POST /api/v1/uploads/{id}/complete", s.handleUploadGateway)
-	mux.HandleFunc("POST /api/v2/uploads/init", s.handleUploadGateway)
-	mux.HandleFunc("POST /api/v2/uploads/{id}/files/{index}/prepare", s.handleUploadGateway)
-	mux.HandleFunc("POST /api/v2/uploads/{id}/files/{index}/complete", s.handleUploadGateway)
-	mux.HandleFunc("POST /api/v2/uploads/{id}/complete", s.handleUploadGateway)
-	if deps.Statistics != nil {
-		deps.Statistics.Register(mux)
-	}
 	// v3 委托/科研统计。
 	mux.HandleFunc("POST /api/v3/post/drops", s.handleV3Drops)
 	mux.HandleFunc("GET /api/v3/get/commission", s.handleV3Commission)
 	mux.HandleFunc("GET /api/v3/get/commission/options", s.handleV3CommissionOptions)
 	mux.HandleFunc("GET /api/v3/get/research", s.handleV3Research)
 	mux.HandleFunc("GET /api/v3/get/research/options", s.handleV3ResearchOptions)
-	// v1 管理接口（运维用，非客户端契约）。
-	mux.HandleFunc("/api/v1/admin/announcement", s.adminAuth(s.handleAdminAnnouncement))
-	mux.HandleFunc("/api/v1/admin/update-policy", s.adminAuth(s.handleAdminUpdatePolicy))
-	mux.HandleFunc("/api/v1/admin/maintenance", s.adminAuth(s.handleAdminMaintenance))
-	mux.HandleFunc("/api/v1/admin/maintenance/source", s.adminAuth(s.handleAdminMaintenanceSource))
-	mux.HandleFunc("/api/v1/admin/maintenance/{server}", s.adminAuth(s.handleAdminMaintenance))
-	mux.HandleFunc("/api/v1/admin/publish/status", s.adminAuth(s.handleAdminPublishStatus))
-	// 管理后台前端（React 构建产物，见 web/ 与 internal/adminui）。
-	mux.Handle("GET /admin", http.RedirectHandler("/admin/", http.StatusPermanentRedirect))
-	if deps.AdminUI != nil {
-		mux.Handle("GET /admin/", deps.AdminUI)
-		mux.Handle("GET /{$}", deps.AdminUI)
-	}
+	mux.Handle("GET /api/v1/admin/ws", s.adminSocket)
 	// 兜底：统一 404 错误信封。
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, apiError{
@@ -159,6 +135,7 @@ func New(deps Deps) *Server {
 	handler = s.rateLimitMiddleware(handler)
 	handler = logMiddleware(s.logger, handler)
 	handler = timeoutMiddleware(s.requestTimeout, s.publishTimeout, handler)
+	handler = publicCORSMiddleware(deps.Cfg.PublicOrigins, handler)
 
 	s.http = &http.Server{
 		Addr:              deps.Cfg.ListenAddr,
@@ -175,10 +152,12 @@ func New(deps Deps) *Server {
 // Run 启动附带的内部协程（限流器空闲回收）。
 func (s *Server) Run(ctx context.Context) {
 	s.limiter.Run(ctx)
+	s.adminSocket.Run(ctx)
 }
 
 // Close 停止内部协程。
 func (s *Server) Close() {
+	s.adminSocket.Close()
 	s.limiter.Close()
 }
 

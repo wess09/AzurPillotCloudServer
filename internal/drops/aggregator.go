@@ -9,7 +9,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"ap-cloud-server/internal/database"
 	"ap-cloud-server/internal/v3db"
+	"gorm.io/gen/field"
 )
 
 // Aggregator 把脏小时重算为四张小时聚合表。
@@ -66,10 +68,7 @@ type dirtyGroup struct {
 // RunOnce 处理当前所有脏小时。每个小时独立事务；单小时失败不影响其它小时。
 func (a *Aggregator) RunOnce(ctx context.Context) error {
 	var groups []dirtyGroup
-	if err := a.db.WithContext(ctx).Model(&v3db.DirtyHour{}).
-		Select("hour, MAX(id) AS max_id").
-		Group("hour").
-		Order("hour ASC").
+	if err := database.Group(database.Project(a.db.WithContext(ctx).Model(&v3db.DirtyHour{}), field.NewTime("", "hour"), field.NewUint64("", "id").Max().As("max_id")), "hour").Order(database.Asc("hour")).
 		Scan(&groups).Error; err != nil {
 		return err
 	}
@@ -86,7 +85,7 @@ func (a *Aggregator) aggregateHour(ctx context.Context, hour time.Time, maxID ui
 	return a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 先锁住本小时的高水位标记。其它实例若已处理并删除该行，直接跳过。
 		var lock v3db.DirtyHour
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", maxID).Take(&lock).Error
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(clause.Eq{Column: "id", Value: maxID}).Take(&lock).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
@@ -96,19 +95,19 @@ func (a *Aggregator) aggregateHour(ctx context.Context, hour time.Time, maxID ui
 
 		end := hour.Add(time.Hour)
 		var events []v3db.DropEvent
-		if err := tx.Where("collected_at >= ? AND collected_at < ?", hour, end).Find(&events).Error; err != nil {
+		if err := tx.Where(clause.Gte{Column: "collected_at", Value: hour}, clause.Lt{Column: "collected_at", Value: end}).Find(&events).Error; err != nil {
 			return err
 		}
 
 		// 只读取本小时事件对应的物品行，避免全表扫描。
 		eventIDs := tx.Model(&v3db.DropEvent{}).Select("record_id").
-			Where("collected_at >= ? AND collected_at < ?", hour, end)
+			Where(clause.Gte{Column: "collected_at", Value: hour}, clause.Lt{Column: "collected_at", Value: end})
 		var commissionItems []v3db.CommissionItem
-		if err := tx.Where("record_id IN (?)", eventIDs).Find(&commissionItems).Error; err != nil {
+		if err := tx.Where(field.ContainsSubQuery([]field.Expr{field.NewString("", "record_id")}, eventIDs)).Find(&commissionItems).Error; err != nil {
 			return err
 		}
 		var researchItems []v3db.ResearchItem
-		if err := tx.Where("record_id IN (?)", eventIDs).Find(&researchItems).Error; err != nil {
+		if err := tx.Where(field.ContainsSubQuery([]field.Expr{field.NewString("", "record_id")}, eventIDs)).Find(&researchItems).Error; err != nil {
 			return err
 		}
 
@@ -125,16 +124,16 @@ func (a *Aggregator) aggregateHour(ctx context.Context, hour time.Time, maxID ui
 		commissionSamples, commissionRows := aggregateCommission(hour, events, commissionItems)
 		researchSamples, researchRows := aggregateResearch(hour, events, researchItems)
 
-		if err := tx.Where("hour = ?", hour).Delete(&v3db.CommissionHourly{}).Error; err != nil {
+		if err := tx.Where(clause.Eq{Column: "hour", Value: hour}).Delete(&v3db.CommissionHourly{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("hour = ?", hour).Delete(&v3db.CommissionItemHourly{}).Error; err != nil {
+		if err := tx.Where(clause.Eq{Column: "hour", Value: hour}).Delete(&v3db.CommissionItemHourly{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("hour = ?", hour).Delete(&v3db.ResearchHourly{}).Error; err != nil {
+		if err := tx.Where(clause.Eq{Column: "hour", Value: hour}).Delete(&v3db.ResearchHourly{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("hour = ?", hour).Delete(&v3db.ResearchItemHourly{}).Error; err != nil {
+		if err := tx.Where(clause.Eq{Column: "hour", Value: hour}).Delete(&v3db.ResearchItemHourly{}).Error; err != nil {
 			return err
 		}
 		if len(commissionSamples) > 0 {
@@ -157,7 +156,7 @@ func (a *Aggregator) aggregateHour(ctx context.Context, hour time.Time, maxID ui
 				return err
 			}
 		}
-		return tx.Where("id <= ?", maxID).Delete(&v3db.DirtyHour{}).Error
+		return tx.Where(clause.Lte{Column: "id", Value: maxID}).Delete(&v3db.DirtyHour{}).Error
 	})
 }
 

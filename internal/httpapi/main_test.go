@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"context"
-	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 
 // fakeBackend 是可编程的存储假实现。
 type fakeBackend struct {
+	mu            sync.Mutex
 	outcome       store.Cl1Outcome
 	payload       []byte
 	submitErr     error
@@ -59,6 +60,8 @@ func (f *fakeBackend) ListMaintenances(ctx context.Context) ([]store.Maintenance
 }
 
 func (f *fakeBackend) LatestAnnouncement(ctx context.Context) (*store.Announcement, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.announcement, nil
 }
 
@@ -67,18 +70,28 @@ func (f *fakeBackend) GenerateAnnouncementID(ctx context.Context, now time.Time)
 }
 
 func (f *fakeBackend) SetAnnouncement(ctx context.Context, a store.Announcement) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.announcement = &a
 	return nil
 }
 func (f *fakeBackend) WithdrawAnnouncement(ctx context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.announcement = nil
 	return nil
 }
 func (f *fakeBackend) ListAnnouncements(ctx context.Context, limit int) ([]store.Announcement, error) {
 	return nil, nil
 }
-func (f *fakeBackend) GetUpdatePolicy(ctx context.Context) (bool, error) { return f.force, nil }
+func (f *fakeBackend) GetUpdatePolicy(ctx context.Context) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.force, nil
+}
 func (f *fakeBackend) SetUpdatePolicy(ctx context.Context, force bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.force = force
 	return nil
 }
@@ -88,12 +101,14 @@ func (f *fakeBackend) LatestPublishByWorker(ctx context.Context) (map[string]sto
 }
 
 // newTestServer 构造被测服务：假存储、可编程缓存、真实发布器（无 CF 凭据）。
-func newTestServer(t *testing.T, backend *fakeBackend, query statuscache.QueryFunc, adminUI ...http.Handler) (*Server, string) {
+func newTestServer(t *testing.T, backend *fakeBackend, query statuscache.QueryFunc) (*Server, string) {
 	t.Helper()
 	dir := t.TempDir()
 	cfg := config.Config{
 		ListenAddr:           "127.0.0.1:0",
 		AdminToken:           "test-admin-token",
+		AdminOrigins:         []string{"https://admin.azurpilot.com"},
+		PublicOrigins:        []string{"https://stats.azurpilot.com"},
 		RequestTimeout:       5 * time.Second,
 		RateLimitRPS:         1000,
 		RateLimitBurst:       1000,
@@ -121,9 +136,6 @@ func newTestServer(t *testing.T, backend *fakeBackend, query statuscache.QueryFu
 		Cache: cache,
 		Pub:   publisher,
 		Now:   func() time.Time { return time.Date(2026, 10, 26, 10, 0, 1, 0, time.UTC) },
-	}
-	if len(adminUI) > 0 {
-		deps.AdminUI = adminUI[0]
 	}
 	srv := New(deps)
 	srv.Run(context.Background())
