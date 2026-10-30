@@ -124,29 +124,20 @@ C 按组哈希事务串行：初版从 1 开始，更正必须是当前版本 +1
 
 新增有效记录会累加到相同维度的统计中；新的期数和 `scene` 来源会自动成为可选项，未知来源名暂按原始标识展示。这里的自动发现指现有字段的新取值，新增 JSON 字段或未支持的奖励标签仍需更新协议。选择“全部区服”时按筛选意图合并区服；海域、侵蚀等级等仍保留在原始结果及旧版逐条查询中，本页面未增加这些维度的细分统计。项目、物品、时段及选项各自最多返回 100000 条汇总分组，超过时返回 `QUERY_TOO_BROAD`；该上限不限制原始样本数。正常的跨期数、跨倾向查询完整返回全部分组，页面继续按每页 25 条展示掉落明细，不会静默截断数据。
 
-## 模板闭环与管理 API
+## 模板直连与统计管理 API
 
-B 自动提取未知图标，小图内容 SHA-256 为候选 ID；相同来源/文件帧/槽位重传不增加次数。候选 PNG 为 8–256 像素、最多 128 KiB；目前 B 提取 49×49 内部图标。C 只保存小图，人工确认名称和类别，支持同物品多个外观。
+模板系统现由独立 AzurPilotCloud 服务提供。客户端图标直接上传模板 API；统一面板里的模板管理请求也由浏览器直接访问模板域名；资源直接从 Worker 下载。主服务器严禁承载模板图片、模板包和模板管理代理，旧候选、模板发布、模板版本下载和 worker/sync 路由已下线。
 
-| 管理操作 | API（均需 ADMIN_TOKEN） |
+当前协议、域名、鉴权与下线路由清单见 [独立模板直连接入](template-service-integration.md)。主服务器仅通过 `/internal/v1/templates/events` 接收必要映射变化和状态；原始统计保留 U-ID，已发布映射用于重算历史，不重新上传图片。
+
+| 统计管理操作 | API（均需 ADMIN_TOKEN） |
 |---|---|
-| 识别概览、最近结果 | `GET /api/v1/admin/statistics/overview`、`/statistics/results` |
-| 候选、模板、版本、指令 | `GET /api/v1/admin/template-candidates`、`/templates`、`/template-releases`、`/worker-commands` |
-| 分类或忽略 | `PATCH /api/v1/admin/template-candidates/{id}` |
-| 发布、回滚 | `POST /api/v1/admin/templates/publish`、`/templates/rollback` |
-| 草稿试识别、重跑 | `POST /api/v1/admin/templates/test`、`/statistics/reprocess`，正文 `{"ids":["样本或候选哈希"]}` |
-| 一键重试缺模板上报 | `POST /api/v1/admin/statistics/reprocess-unresolved`，无需正文；仅重试确实缺模板的来源 |
-| 原始帧流式预览 | `GET /api/v1/admin/statistics/preview/{sha256}/{index}?frame=0` |
+| 识别概览、最近结果 | `GET /api/v1/admin/statistics/overview`、`/api/v1/admin/statistics/results` |
+| 旧统计指令记录 | `GET /api/v1/admin/worker-commands` |
+| 统计重处理记录接口 | `POST /api/v1/admin/statistics/reprocess`、`/api/v1/admin/statistics/reprocess-unresolved` |
+| 原始统计帧预览 | `GET /api/v1/admin/statistics/preview/{sha256}/{index}?frame=0` |
 
-分类正文为 `{"status":"assigned","template":{"item_id":"Coins","name":"物资","category":"consumable","rarity":0,"series":0,"scene":"all","enabled":true}}`；忽略用 `status=ignored`。类别为 `ship_blueprint / equipment_blueprint / consumable / other`；模板场景 `all` 可跨科研和通用掉落使用，也可限制为 `research / drop`。
-
-分类保存会在同一事务中更新模板、冻结完整模板包和 SHA-256、切换活动版本，返回 `release_id / queued_samples`，无需再手动发布。新增或修改启用的识别模板时，只自动重跑当前缺模板的来源；模板修改、禁用或回滚时，只订正使用过受影响模板的结果。显示名称等元数据修改、重复发布相同识别内容不生成重跑任务。待分类页的“一键重试缺模板”也只重试缺模板来源，合并同版本待处理指令。
-
-项目、数量、奖励画面或其他纯解析失败只保留失败历史，不进入模板自动重试流程、不计入正式统计。后台默认展示“等待补充模板”，其他失败可在“解析失败历史”中查看；识别器修复后可通过单条 `/statistics/reprocess` 明确重试。内部状态 `needs_review` 保留用于协议兼容，界面不再表示需要人工复核。
-
-回滚复制旧内容生成新版本，保持版本号递增；当前模板编辑值不随回滚改动。B 通过 `POST /internal/v1/worker/sync` 每 30 秒上报心跳/指令进度并获取活动版本和指令，通过 `GET /internal/v1/template-releases/{id}` 下载并验包。重处理不等待 30 分钟上传调度；每个识别任务固定模板快照，试识别不写正式结果。
-
-识别概览的 `counts` 按唯一上报计数，`image_counts` 按上报包含的原图数量计数；一次上报可以含多张图。这两个数字只覆盖 B 已回传的结果，B 本地排队任务另行显示。正式统计中的项目槽位和完成事件也不是图片张数。
+上述是原有截图统计接口，不是新模板管理或分发入口。旧 B 节点依赖的模板心跳/版本下载接口不再兼容，必须改为直连模板 API 和 Worker，不能恢复主服务器模板代理。
 
 ## 验证
 

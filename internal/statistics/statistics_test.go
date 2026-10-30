@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"image"
-	"image/color"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,7 +26,7 @@ var fixtureSequence atomic.Uint64
 func fixture(t *testing.T) Result {
 	t.Helper()
 	// Windows clocks may return the same timestamp for consecutive fixtures.
-	f := sha256.Sum256([]byte(t.Name() + time.Now().String() + jsonNumber(int64(fixtureSequence.Add(1)))))
+	f := sha256.Sum256([]byte(t.Name() + time.Now().String() + strconv.FormatUint(fixtureSequence.Add(1), 10)))
 	sum := sha256.Sum256(f[:])
 	hash := hex.EncodeToString(sum[:])
 	source := Source{SHA256: hash, Metadata: Metadata{DeviceID: strings.Repeat("a", 32), InstanceID: strings.Repeat("b", 16), Project: "drop", Scene: "test_" + hash[:12], Server: "cn", CollectedAt: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339), Sizes: []int64{8}}, Files: []SourceFile{{Index: 0, Size: 8, SHA256: hex.EncodeToString(f[:]), FileID: 1}}}
@@ -260,174 +259,10 @@ func TestStatisticsAuthenticationAndBounds(t *testing.T) {
 		t.Fatal(rec.Body.String())
 	}
 }
-func TestCandidateClassificationPublicationAndRollback(t *testing.T) {
-	s := service(t)
-	r := fixture(t)
-	r.Status = "needs_review"
-	r.Diagnostics = []string{"missing_template"}
-	if ack, e := s.Apply(context.Background(), r); e != nil || ack.Status != "accepted" {
-		t.Fatal(ack, e)
-	}
-	im := image.NewRGBA(image.Rect(0, 0, 49, 49))
-	for x := range 49 {
-		for y := range 49 {
-			im.Set(x, y, color.RGBA{uint8(x * 5), uint8(y * 5), uint8(len(t.Name())), 255})
-		}
-	}
-	var pngBytes bytes.Buffer
-	if e := png.Encode(&pngBytes, im); e != nil {
-		t.Fatal(e)
-	}
-	sum := sha256.Sum256(pngBytes.Bytes())
-	id := hex.EncodeToString(sum[:])
-	candidate := Candidate{ID: id, Scene: "drop", Image: base64.StdEncoding.EncodeToString(pngBytes.Bytes()), Sample: r.SHA256, Occurrence: "0:0:0", Metadata: map[string]any{"file_index": 0, "frame_index": 0}}
-	for range 2 {
-		rec := call(t, s, "POST", "/internal/v1/template-candidates", "worker-token", candidate)
-		if rec.Code != 200 {
-			t.Fatal(rec.Body.String())
-		}
-	}
-	var count int64
-	if e := s.Pool.QueryRow(context.Background(), `SELECT count(*) FROM candidate_sources WHERE candidate_id=$1 AND sample_sha256=$2`, id, r.SHA256).Scan(&count); e != nil || count != 1 {
-		t.Fatal("candidate replay increased occurrence", count, e)
-	}
-	template := Template{ItemID: "TestCoins", Name: "物资", Category: "consumable", Scene: "drop", Enabled: true}
-	rec := call(t, s, "PATCH", "/api/v1/admin/template-candidates/"+id, "admin-token", map[string]any{"status": "assigned", "template": template})
-	if rec.Code != 200 {
-		t.Fatal(rec.Body.String())
-	}
-	var activation struct {
-		Release int64 `json:"release_id"`
-		Queued  int64 `json:"queued_samples"`
-	}
-	if e := json.Unmarshal(rec.Body.Bytes(), &activation); e != nil || activation.Release < 1 || activation.Queued < 1 {
-		t.Fatal("classification did not automatically publish and queue unresolved samples", rec.Body.String(), e)
-	}
-	var active int64
-	if e := s.Pool.QueryRow(context.Background(), `SELECT release_id FROM template_active WHERE id`).Scan(&active); e != nil || active != activation.Release {
-		t.Fatal("classification and active release were not committed together", active, e)
-	}
-	rec = call(t, s, "POST", "/api/v1/admin/templates/test", "admin-token", map[string]any{"ids": []string{id}})
-	if rec.Code != 202 {
-		t.Fatal(rec.Body.String())
-	}
-	rec = call(t, s, "POST", "/api/v1/admin/templates/publish", "admin-token", nil)
-	if rec.Code != 200 {
-		t.Fatal(rec.Body.String())
-	}
-	var published struct {
-		ID int64 `json:"release_id"`
-	}
-	if e := json.Unmarshal(rec.Body.Bytes(), &published); e != nil {
-		t.Fatal(e)
-	}
-	rec = call(t, s, "GET", "/internal/v1/template-releases/"+jsonNumber(published.ID), "worker-token", nil)
-	if rec.Code != 200 {
-		t.Fatal(rec.Body.String())
-	}
-	digest := sha256.Sum256(rec.Body.Bytes())
-	if rec.Header().Get("X-Content-SHA256") != hex.EncodeToString(digest[:]) {
-		t.Fatal("release checksum mismatch")
-	}
-	rec = call(t, s, "POST", "/api/v1/admin/templates/rollback", "admin-token", map[string]any{"release_id": published.ID})
-	if rec.Code != 200 {
-		t.Fatal(rec.Body.String())
-	}
-	var rollback struct {
-		ID int64 `json:"release_id"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &rollback)
-	if rollback.ID <= published.ID {
-		t.Fatal("rollback must be a new activation version")
-	}
-	rec = call(t, s, "POST", "/internal/v1/worker/sync", "worker-token", map[string]any{"worker_id": "integration-test", "release_id": 0, "pending": 1, "updates": []any{}})
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"commands"`) {
-		t.Fatal(rec.Body.String())
-	}
-}
-func jsonNumber(n int64) string { b, _ := json.Marshal(n); return string(b) }
-
-func TestCandidateAutomaticallyResolvesAndReopens(t *testing.T) {
-	s := service(t)
-	ctx := context.Background()
-	var data bytes.Buffer
-	if e := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 16, 16))); e != nil {
-		t.Fatal(e)
-	}
-	digest := sha256.Sum256(data.Bytes())
-	id := hex.EncodeToString(digest[:])
-	r1, r2 := fixture(t), fixture(t)
-	for _, result := range []*Result{&r1, &r2} {
-		result.Status = "needs_review"
-		result.Candidates = []string{id}
-		result.Diagnostics = []string{"missing_template:" + id}
-		if _, e := s.Apply(ctx, *result); e != nil {
-			t.Fatal(e)
-		}
-		candidate := Candidate{ID: id, Scene: "drop", Image: base64.StdEncoding.EncodeToString(data.Bytes()), Sample: result.SHA256, Occurrence: "0:0:0", Metadata: map[string]any{}}
-		if rec := call(t, s, "POST", "/internal/v1/template-candidates", "worker-token", candidate); rec.Code != 200 {
-			t.Fatal(rec.Body.String())
-		}
-	}
-	expect := func(status string, blocked int64) {
-		t.Helper()
-		rec := call(t, s, "GET", "/api/v1/admin/template-candidates?status="+status, "admin-token", nil)
-		var reply struct {
-			Items []struct {
-				ID      string `json:"id"`
-				Status  string `json:"status"`
-				Blocked int64  `json:"blocked_samples"`
-			} `json:"items"`
-		}
-		if e := json.Unmarshal(rec.Body.Bytes(), &reply); e != nil || rec.Code != 200 {
-			t.Fatal(rec.Body.String(), e)
-		}
-		for _, candidate := range reply.Items {
-			if candidate.ID == id {
-				if candidate.Status != status || candidate.Blocked != blocked {
-					t.Fatal(candidate)
-				}
-				return
-			}
-		}
-		t.Fatalf("candidate missing from %s", status)
-	}
-	expect("pending", 2)
-	r1.Revision++
-	r1.Status = "complete"
-	r1.Candidates = nil
-	r1.Diagnostics = nil
-	if _, e := s.Apply(ctx, r1); e != nil {
-		t.Fatal(e)
-	}
-	expect("pending", 1)
-	// The icon is fixed even though a different project error still needs review.
-	r2.Revision++
-	r2.Candidates = nil
-	r2.Diagnostics = []string{"unknown_project"}
-	if _, e := s.Apply(ctx, r2); e != nil {
-		t.Fatal(e)
-	}
-	expect("resolved", 0)
-	rec := call(t, s, "GET", "/api/v1/admin/template-candidates?status=pending", "admin-token", nil)
-	if strings.Contains(rec.Body.String(), id) {
-		t.Fatal("resolved candidate still occupies pending list")
-	}
-	// A later rollback can make the exact icon unknown again.
-	r1.Revision++
-	r1.Status = "needs_review"
-	r1.Candidates = []string{id}
-	r1.Diagnostics = []string{"missing_template:" + id}
-	if _, e := s.Apply(ctx, r1); e != nil {
-		t.Fatal(e)
-	}
-	expect("pending", 1)
-}
-
 func TestReprocessUnresolvedMergesConcurrentClicks(t *testing.T) {
 	s := service(t)
-	if rec := call(t, s, "POST", "/api/v1/admin/templates/publish", "admin-token", nil); rec.Code != 200 {
-		t.Fatal(rec.Body.String())
+	if _, err := s.createRelease(context.Background(), []byte("[]")); err != nil {
+		t.Fatal(err)
 	}
 	unresolved := fixture(t)
 	unresolved.Status = "needs_review"
@@ -469,8 +304,8 @@ func TestReprocessUnresolvedMergesConcurrentClicks(t *testing.T) {
 		}
 	}
 	// Republishing an unchanged package must not scan failures again.
-	if rec := call(t, s, "POST", "/api/v1/admin/templates/publish", "admin-token", nil); rec.Code != 200 {
-		t.Fatal(rec.Body.String())
+	if _, err := s.createRelease(context.Background(), []byte("[]")); err != nil {
+		t.Fatal(err)
 	}
 	var versions int
 	if e := s.Pool.QueryRow(context.Background(), `SELECT count(*) FROM worker_commands WHERE action='reprocess' AND payload->'sources' @> $1::jsonb`, "[{\"sha256\":\""+unresolved.SHA256+"\"}]").Scan(&versions); e != nil || versions != 1 {

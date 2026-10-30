@@ -7,10 +7,10 @@ import { UpdatePolicyView } from './views/UpdatePolicyView'
 import { MaintenanceView } from './views/MaintenanceView'
 import { PublishStatusView } from './views/PublishStatusView'
 import { Logo } from './ui'
-import { RecognitionOverview, TemplateCandidates, TemplateLibrary } from './views/StatisticsView'
+import { RecognitionOverview } from './views/StatisticsView'
 import { TemplateServiceView } from './views/TemplateServiceView'
 
-type Section = 'overview' | 'announcement' | 'update-policy' | 'maintenance' | 'publish' | 'recognition' | 'candidates' | 'templates' | 'template-service'
+type Section = 'overview' | 'announcement' | 'update-policy' | 'maintenance' | 'publish' | 'recognition' | 'template-service'
 
 const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: 'overview', label: '概览' },
@@ -19,8 +19,6 @@ const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: 'maintenance', label: '维护计划' },
   { key: 'publish', label: '发布状态' },
   { key: 'recognition', label: '识别概览' },
-  { key: 'candidates', label: '待分类模板' },
-  { key: 'templates', label: '模板库' },
   { key: 'template-service', label: '模板服务' },
 ]
 
@@ -31,8 +29,6 @@ const SECTION_TITLES: Record<Section, string> = {
   maintenance: '维护计划',
   publish: '发布状态',
   recognition: '识别概览',
-  candidates: '待分类模板',
-  templates: '模板库',
   'template-service': '模板服务',
 }
 
@@ -103,9 +99,7 @@ export function App() {
           {section === 'update-policy' && <UpdatePolicyView />}
           {section === 'maintenance' && <MaintenanceView />}
           {section === 'publish' && <PublishStatusView />}
-          {section === 'recognition' && <RecognitionOverview onClassify={() => setSection('candidates')} />}
-          {section === 'candidates' && <TemplateCandidates />}
-          {section === 'templates' && <TemplateLibrary />}
+          {section === 'recognition' && <RecognitionOverview onClassify={() => setSection('template-service')} />}
           {section === 'template-service' && <TemplateServiceView />}
         </main>
       </div>

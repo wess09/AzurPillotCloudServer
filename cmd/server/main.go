@@ -31,7 +31,6 @@ import (
 	"ap-cloud-server/internal/statistics"
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
-	"ap-cloud-server/internal/templateproxy"
 	"ap-cloud-server/internal/templatesync"
 	"ap-cloud-server/internal/v3db"
 	"ap-cloud-server/internal/version"
@@ -75,17 +74,6 @@ func run() error {
 	var dropsSvc *drops.Service
 	var templateSync *templatesync.Service
 	templateWake := make(chan struct{}, 1)
-	templateProxy, err := templateproxy.New(cfg.TemplatePublicBase, cfg.TemplateProxyCache)
-	if err != nil {
-		return err
-	}
-	templateIngest, err := templateproxy.NewIngest(cfg.TemplateIngestURL, cfg.TemplateIngestToken)
-	if err != nil {
-		return err
-	}
-	if templateIngest == nil {
-		logger.Info("TEMPLATE_INGEST_URL 未配置，未知模板上传接口返回 503")
-	}
 	if cfg.V3Enabled {
 		v3store, err := v3db.Open(ctx, cfg.DatabaseURL)
 		if err != nil {
@@ -153,18 +141,16 @@ func run() error {
 
 	// 5. HTTP 服务。
 	srv := httpapi.New(httpapi.Deps{
-		Maintenance:    maintenanceSync,
-		Statistics:     statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes),
-		Drops:          dropsSvc,
-		Templates:      templateProxy,
-		TemplateIngest: templateIngest,
-		TemplateSync:   templateSync,
-		Cfg:            cfg,
-		Store:          st,
-		Cache:          cache,
-		Pub:            publisher,
-		Logger:         logger,
-		AdminUI:        adminui.Handler(),
+		Maintenance:  maintenanceSync,
+		Statistics:   statistics.New(st.Pool, cfg.StatisticsToken, cfg.AdminToken).WithWorker(cfg.RecognizerURL, cfg.WorkerToken).WithLimits(cfg.StatisticsFileBytes, cfg.StatisticsGroupBytes),
+		Drops:        dropsSvc,
+		TemplateSync: templateSync,
+		Cfg:          cfg,
+		Store:        st,
+		Cache:        cache,
+		Pub:          publisher,
+		Logger:       logger,
+		AdminUI:      adminui.Handler(),
 	})
 	srv.Run(ctx)
 	defer srv.Close()

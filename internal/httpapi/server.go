@@ -13,7 +13,6 @@ import (
 	"ap-cloud-server/internal/statistics"
 	"ap-cloud-server/internal/statuscache"
 	"ap-cloud-server/internal/store"
-	"ap-cloud-server/internal/templateproxy"
 	"ap-cloud-server/internal/templatesync"
 )
 
@@ -46,17 +45,13 @@ type Deps struct {
 	Maintenance MaintenanceSync
 	Statistics  *statistics.Service
 	// Drops 为 nil 时 v3 上报与查询接口返回 503。
-	Drops *drops.Service
-	// Templates 为 nil 时模板读取接口返回 503。
-	Templates *templateproxy.Proxy
-	// TemplateIngest 为 nil 时未知模板上传返回 503。
-	TemplateIngest *templateproxy.Ingest
-	TemplateSync   *templatesync.Service
-	Cfg            config.Config
-	Store          Backend
-	Cache          *statuscache.Cache
-	Pub            *publish.Publisher
-	Logger         *slog.Logger
+	Drops        *drops.Service
+	TemplateSync *templatesync.Service
+	Cfg          config.Config
+	Store        Backend
+	Cache        *statuscache.Cache
+	Pub          *publish.Publisher
+	Logger       *slog.Logger
 	// AdminUI 是管理后台前端处理器（internal/adminui.Handler() 提供）；nil 时退回 404。
 	AdminUI http.Handler
 	// Now 可注入时钟，测试用；nil 时使用 time.Now。
@@ -110,7 +105,6 @@ func New(deps Deps) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("POST /internal/v1/templates/events", s.handleTemplateEvent)
-	mux.HandleFunc("/api/v1/admin/template-service/", s.adminAuth(s.handleTemplateAdmin))
 	// v2 动态接口：方法在处理器内部校验，错误方法返回统一 405 信封。
 	mux.HandleFunc("/api/v2/get/server", requireDeviceID(s.handleGetServer))
 	mux.HandleFunc("/api/v2/get/maintenance", requireDeviceID(s.handleGetMaintenance))
@@ -134,14 +128,10 @@ func New(deps Deps) *Server {
 	}
 	// v3 委托/科研统计。
 	mux.HandleFunc("POST /api/v3/post/drops", s.handleV3Drops)
-	mux.HandleFunc("POST /api/v3/post/templates/unknown", s.handleV3UnknownTemplate)
 	mux.HandleFunc("GET /api/v3/get/commission", s.handleV3Commission)
 	mux.HandleFunc("GET /api/v3/get/commission/options", s.handleV3CommissionOptions)
 	mux.HandleFunc("GET /api/v3/get/research", s.handleV3Research)
 	mux.HandleFunc("GET /api/v3/get/research/options", s.handleV3ResearchOptions)
-	mux.HandleFunc("GET /api/v3/get/templates/manifest", s.handleV3TemplateManifest)
-	mux.HandleFunc("GET /api/v3/get/templates/delta", s.handleV3TemplateDelta)
-	mux.HandleFunc("GET /api/v3/get/mappings", s.handleV3TemplateMappings)
 	// v1 管理接口（运维用，非客户端契约）。
 	mux.HandleFunc("/api/v1/admin/announcement", s.adminAuth(s.handleAdminAnnouncement))
 	mux.HandleFunc("/api/v1/admin/update-policy", s.adminAuth(s.handleAdminUpdatePolicy))

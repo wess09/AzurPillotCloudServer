@@ -25,7 +25,7 @@ func TestPublishedMappingRepairsHistoryAndRejectsConflictingReplay(t *testing.T)
 		t.Fatal(err)
 	}
 	defer func() { _ = store.Close() }()
-	for _, eventID := range []string{"e459b41d-2db6-454f-9187-ff6d226d79f1", "e459b41d-2db6-454f-9187-ff6d226d79f2"} {
+	for _, eventID := range []string{"e459b41d-2db6-454f-9187-ff6d226d79f1", "e459b41d-2db6-454f-9187-ff6d226d79f2", "e459b41d-2db6-454f-9187-ff6d226d79f3"} {
 		if err := store.DB.Where(clause.Eq{Column: "event_id", Value: eventID}).Delete(&v3db.TemplateEventReceipt{}).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -103,6 +103,17 @@ func TestPublishedMappingRepairsHistoryAndRejectsConflictingReplay(t *testing.T)
 	}
 	if mapping.ItemID != "BlueprintT3" {
 		t.Fatal("older release replaced mapping")
+	}
+	// Temporary-only publications carry no mapping changes and must retain existing aliases.
+	next := notification
+	next.EventID = "e459b41d-2db6-454f-9187-ff6d226d79f3"
+	next.Sequence, next.Revision = 3, 101
+	next.Payload = json.RawMessage(`{"revision":101,"replace_ids":[]}`)
+	if err := service.Apply(ctx, next, strings.Repeat("d", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DB.Take(&mapping, clause.Eq{Column: "unknown_id", Value: "U-SYNC-TEST"}).Error; err != nil || mapping.ItemID != "BlueprintT3" {
+		t.Fatalf("incremental publication erased an earlier alias: %+v %v", mapping, err)
 	}
 }
 

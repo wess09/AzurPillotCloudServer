@@ -89,22 +89,15 @@ func (s *Service) Register(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/admin/statistics/preview/{sha256}/{index}", s.auth(s.Admin, s.preview))
 	m.HandleFunc("POST /internal/v1/statistics/results", s.auth(s.Token, s.ingest))
 	m.HandleFunc("GET /internal/v1/statistics/results/{sha256}", s.auth(s.Token, s.receipt))
-	m.HandleFunc("POST /internal/v1/template-candidates", s.auth(s.Token, s.candidate))
-	m.HandleFunc("POST /internal/v1/worker/sync", s.auth(s.Token, s.syncWorker))
-	m.HandleFunc("GET /internal/v1/template-releases/{id}", s.auth(s.Token, s.release))
 	m.HandleFunc("GET /api/v2/get/research", s.summary)
 	m.HandleFunc("GET /api/v2/get/research/options", s.summary)
 	m.HandleFunc("GET /api/v2/get/research/time-slots", s.summary)
 	m.HandleFunc("GET /api/v2/get/drop", s.summary)
 	m.HandleFunc("GET /api/v2/get/drop/options", s.summary)
 	m.HandleFunc("GET /api/v2/get/drop/time-slots", s.summary)
-	for _, route := range []string{"GET /api/v1/admin/statistics/overview", "GET /api/v1/admin/statistics/results", "GET /api/v1/admin/template-candidates", "GET /api/v1/admin/templates", "GET /api/v1/admin/template-releases", "GET /api/v1/admin/worker-commands"} {
+	for _, route := range []string{"GET /api/v1/admin/statistics/overview", "GET /api/v1/admin/statistics/results", "GET /api/v1/admin/worker-commands"} {
 		m.HandleFunc(route, s.auth(s.Admin, s.adminList))
 	}
-	m.HandleFunc("PATCH /api/v1/admin/template-candidates/{id}", s.auth(s.Admin, s.classify))
-	m.HandleFunc("POST /api/v1/admin/templates/publish", s.auth(s.Admin, s.publish))
-	m.HandleFunc("POST /api/v1/admin/templates/rollback", s.auth(s.Admin, s.rollback))
-	m.HandleFunc("POST /api/v1/admin/templates/test", s.auth(s.Admin, s.testTemplate))
 	m.HandleFunc("POST /api/v1/admin/statistics/reprocess", s.auth(s.Admin, s.reprocess))
 	m.HandleFunc("POST /api/v1/admin/statistics/reprocess-unresolved", s.auth(s.Admin, s.reprocessUnresolved))
 }

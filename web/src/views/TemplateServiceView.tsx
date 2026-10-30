@@ -3,7 +3,8 @@ import { request } from '../api'
 import { Card, useAction, useLoad } from '../ui'
 import '../template-service.css'
 
-const BASE = '/api/v1/admin/template-service'
+// Requests go straight from the browser to the template host, using the shared admin login.
+const BASE = 'https://templates-api.azurpilot.com/internal/v1/templates'
 type Mapping = { item_id: string; name: string; tag: string }
 type Template = { id: string; canonical_id: string; name: string; tag: string; kind: 'formal' | 'temporary'; hits: number; image_base64: string; draft: Mapping | null }
 type Release = { revision: number; status: 'building' | 'deployed' | 'failed'; note: string; error: string; created_at: string }
@@ -18,7 +19,7 @@ export function TemplateServiceView() {
   const [formal, setFormal] = useState<Mapping>({ item_id: '', name: '', tag: '' })
   const [file, setFile] = useState<File | null>(null)
   const status = useLoad(() => request<Status>('GET', `${BASE}/status`), [pulse])
-  const rows = useLoad(() => request<{ items: Template[] }>('GET', `${BASE}/templates?limit=50&offset=${offset}${filter ? `&kind=${filter}` : ''}`), [filter, offset, pulse])
+  const rows = useLoad(() => request<{ items: Template[] }>('GET', `${BASE}?limit=50&offset=${offset}${filter ? `&kind=${filter}` : ''}`), [filter, offset, pulse])
   const releases = useLoad(() => request<{ items: Release[] }>('GET', `${BASE}/releases`), [pulse])
   const action = useAction()
   useEffect(() => {
@@ -79,7 +80,7 @@ export function TemplateServiceView() {
           reader.onload = () => resolve(String(reader.result).split(',')[1])
           reader.readAsDataURL(file)
         })
-        await request('POST', `${BASE}/templates`, { ...formal, image_base64 })
+        await request('POST', `${BASE}`, { ...formal, image_base64 })
         refresh()
         return `正式模板 ${formal.item_id} 已导入，等待静态发布。`
       }) }}>

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,14 +13,11 @@ import (
 )
 
 const (
-	v3SchemaVersion     = 3
-	v3MaxBatch          = 200
-	v3MaxBodyBytes      = 1 << 20
-	v3MaxRange          = 366 * 24 * time.Hour
-	v3DefaultRange      = 30 * 24 * time.Hour
-	templateDeltaTTL    = 30 * time.Second
-	templateManifestTTL = 60 * time.Second
-	v3UnknownMaxBytes   = 512 << 10
+	v3SchemaVersion = 3
+	v3MaxBatch      = 200
+	v3MaxBodyBytes  = 1 << 20
+	v3MaxRange      = 366 * 24 * time.Hour
+	v3DefaultRange  = 30 * 24 * time.Hour
 )
 
 // writeV3Error 输出 schema_version=3 的错误信封，复用统一状态码与细节。
@@ -89,68 +85,14 @@ func (s *Server) handleV3Drops(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleV3UnknownTemplate 把客户端上传转给模板服务器；主 API 不落盘。
-func (s *Server) handleV3UnknownTemplate(w http.ResponseWriter, r *http.Request) {
-	if s.deps.TemplateIngest == nil || !s.deps.TemplateIngest.Enabled() {
-		writeV3Error(w, r, apiError{http.StatusServiceUnavailable, "TEMPLATE_INGEST_DISABLED", "未知模板上传未启用", map[string]any{}})
-		return
-	}
-	if !isJSON(r.Header.Get("Content-Type")) {
-		writeV3Error(w, r, errUnsupportedMediaType())
-		return
-	}
-	body := http.MaxBytesReader(w, r.Body, v3UnknownMaxBytes)
-	data, err := io.ReadAll(body)
-	if err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			writeV3Error(w, r, apiError{http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "请求体超过 512 KiB 上限", map[string]any{}})
-			return
-		}
-		writeV3Error(w, r, errInvalidJSON())
-		return
-	}
-	if len(data) == 0 {
-		writeV3Error(w, r, errInvalidJSON())
-		return
-	}
-	resp, err := s.deps.TemplateIngest.Submit(r.Context(), data)
-	if err != nil {
-		writeV3Error(w, r, apiError{http.StatusServiceUnavailable, "TEMPLATE_INGEST_UNAVAILABLE", "模板服务暂不可用", map[string]any{}})
-		return
-	}
-	for name, values := range resp.Header {
-		for _, v := range values {
-			w.Header().Add(name, v)
-		}
-	}
-	if w.Header().Get("Content-Type") == "" {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	}
-	w.WriteHeader(resp.Status)
-	_, _ = w.Write(resp.Body)
-}
-
+// Template revisions come exclusively from received mapping events; never fetch template resources.
 func (s *Server) templateRevision(r *http.Request) uint64 {
 	if s.deps.TemplateSync != nil {
 		if revision, err := s.deps.TemplateSync.Revision(r.Context()); err == nil {
 			return revision
 		}
 	}
-	if s.deps.Templates == nil || !s.deps.Templates.Enabled() {
-		return 0
-	}
-	resp, err := s.deps.Templates.GetTTL(r.Context(), "manifest-revision", "/api/v3/get/templates/manifest", nil, templateManifestTTL)
-	if err != nil {
-		return 0
-	}
-	var m struct {
-		Revision uint64 `json:"revision"`
-	}
-	if json.Unmarshal(resp.Body, &m) != nil {
-		return 0
-	}
-	return m.Revision
+	return 0
 }
 
 func (s *Server) handleV3Commission(w http.ResponseWriter, r *http.Request) {
@@ -367,67 +309,4 @@ func parsePositiveInt(raw string, min, max int, field string) (int, *apiError) {
 func isJSON(contentType string) bool {
 	ct := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
 	return ct == "application/json"
-}
-
-func (s *Server) handleV3TemplateManifest(w http.ResponseWriter, r *http.Request) {
-	s.serveTemplate(w, r, "manifest", "/api/v3/get/templates/manifest", nil, templateManifestTTL)
-}
-
-func (s *Server) handleV3TemplateDelta(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	from := strings.TrimSpace(q.Get("from"))
-	if from == "" {
-		from = "0"
-	}
-	n, err := strconv.ParseUint(from, 10, 32)
-	if err != nil {
-		writeV3Error(w, r, errValidation("from 必须是非负整数", "from"))
-		return
-	}
-	extra := url.Values{"from": {strconv.FormatUint(n, 10)}}
-	if scene := strings.TrimSpace(q.Get("scene")); scene != "" {
-		if scene != "commission" && scene != "research" {
-			writeV3Error(w, r, errValidation("scene 只能为 commission 或 research", "scene"))
-			return
-		}
-		extra.Set("scene", scene)
-	}
-	key := "delta:" + extra.Encode()
-	s.serveTemplate(w, r, key, "/api/v3/get/templates/delta", extra, templateDeltaTTL)
-}
-
-func (s *Server) handleV3TemplateMappings(w http.ResponseWriter, r *http.Request) {
-	s.serveTemplate(w, r, "mappings", "/api/v3/get/mappings", nil, templateDeltaTTL)
-}
-
-func (s *Server) serveTemplate(w http.ResponseWriter, r *http.Request, key, path string, q url.Values, ttl time.Duration) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		writeV3Error(w, r, errMethodNotAllowed("GET, HEAD"))
-		return
-	}
-	if s.deps.Templates == nil {
-		writeV3Error(w, r, errServiceUnavailable())
-		return
-	}
-	resp, err := s.deps.Templates.GetTTL(r.Context(), key, path, q, ttl)
-	if err != nil {
-		writeV3Error(w, r, apiError{http.StatusServiceUnavailable, "TEMPLATE_UPSTREAM_UNAVAILABLE", "模板服务暂不可用", map[string]any{}})
-		return
-	}
-	for name, values := range resp.Header {
-		for _, v := range values {
-			w.Header().Add(name, v)
-		}
-	}
-	if w.Header().Get("Content-Type") == "" {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	}
-	if w.Header().Get("Cache-Control") == "" {
-		w.Header().Set("Cache-Control", "public, max-age=60")
-	}
-	w.WriteHeader(resp.Status)
-	if r.Method == http.MethodHead {
-		return
-	}
-	_, _ = w.Write(resp.Body)
 }

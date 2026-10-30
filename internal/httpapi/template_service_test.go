@@ -1,47 +1,62 @@
 package httpapi
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"ap-cloud-server/internal/config"
+	"ap-cloud-server/internal/statistics"
 )
 
-func TestTemplateAdminProxyUsesServerCredentialAndSharedAdminLogin(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/internal/v1/templates/status" {
-			t.Errorf("path: %s", r.URL.Path)
-		}
-		if r.Header.Get("Authorization") != "Bearer template-secret" {
-			t.Error("browser credential leaked upstream")
-		}
-		_, _ = io.WriteString(w, `{"revision":42}`)
-	}))
-	defer upstream.Close()
-	server := &Server{adminToken: "main-admin", deps: Deps{Cfg: config.Config{TemplateAdminURL: upstream.URL, TemplateAdminToken: "template-secret"}}}
-	for _, token := range []string{"", "main-admin"} {
-		request := httptest.NewRequest("GET", "/api/v1/admin/template-service/status", nil)
-		request.Header.Set("Authorization", "Bearer "+token)
-		response := httptest.NewRecorder()
-		server.adminAuth(server.handleTemplateAdmin)(response, request)
-		if token == "" && response.Code != 401 {
-			t.Fatalf("no admin session: %d", response.Code)
-		}
-		if token != "" && (response.Code != 200 || !strings.Contains(response.Body.String(), "42")) {
-			t.Fatalf("proxy failed: %d %s", response.Code, response.Body.String())
+type unreadTemplateBody struct{}
+
+func (unreadTemplateBody) Read([]byte) (int, error) { panic("main server read template upload") }
+
+func TestMainServerDoesNotExposeTemplateTransport(t *testing.T) {
+	server, _ := newTestServer(t, &fakeBackend{}, nil)
+	legacy := http.NewServeMux()
+	statistics.New(nil, "worker-token", "main-admin").Register(legacy)
+	routes := []struct{ method, path string }{
+		{"POST", "/api/v3/post/templates/unknown"},
+		{"POST", "/api/v3/post/unknown-candidates"},
+		{"GET", "/api/v3/get/templates/manifest"},
+		{"GET", "/api/v3/get/templates/delta?from=0"},
+		{"GET", "/api/v3/get/mappings"},
+		{"GET", "/api/v1/admin/template-service/status"},
+		{"POST", "/api/v1/admin/template-service/templates"},
+		{"PUT", "/api/v1/admin/template-service/mappings/U-123"},
+		{"POST", "/api/v1/admin/template-service/publish"},
+		{"POST", "/internal/v1/template-candidates"},
+		{"POST", "/internal/v1/worker/sync"},
+		{"GET", "/internal/v1/template-releases/1"},
+		{"GET", "/api/v1/admin/template-candidates"},
+		{"PATCH", "/api/v1/admin/template-candidates/1"},
+		{"GET", "/api/v1/admin/templates"},
+		{"GET", "/api/v1/admin/template-releases"},
+		{"POST", "/api/v1/admin/templates/publish"},
+		{"POST", "/api/v1/admin/templates/rollback"},
+		{"POST", "/api/v1/admin/templates/test"},
+	}
+	for _, handler := range []http.Handler{server.Handler(), legacy} {
+		for _, route := range routes {
+			request := httptest.NewRequest(route.method, route.path, unreadTemplateBody{})
+			request.Header.Set("Authorization", "Bearer main-admin")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusNotFound {
+				t.Errorf("template route still exposed: %s %s: %d", route.method, route.path, response.Code)
+			}
 		}
 	}
 }
 
-func TestTemplateAdminProxyRestrictsManagementPaths(t *testing.T) {
-	server := &Server{deps: Deps{Cfg: config.Config{TemplateAdminURL: "https://templates.example", TemplateAdminToken: "service-secret"}}}
-	request := httptest.NewRequest("POST", "/api/v1/admin/template-service/arbitrary", nil)
+func TestTemplateEventReceiverRemainsAuthenticated(t *testing.T) {
+	server, _ := newTestServer(t, &fakeBackend{}, nil)
+	request := httptest.NewRequest("POST", "/internal/v1/templates/events", strings.NewReader(`{}`))
 	response := httptest.NewRecorder()
-	server.handleTemplateAdmin(response, request)
-	if response.Code != 404 {
-		t.Fatalf("unexpected proxy path accepted: %d", response.Code)
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unconfigured event receiver should fail closed: %d", response.Code)
 	}
 }

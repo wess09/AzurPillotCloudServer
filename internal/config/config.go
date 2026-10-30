@@ -81,18 +81,8 @@ type Config struct {
 	V3Enabled bool
 	// AggInterval 为 v3 小时聚合任务的运行间隔。
 	AggInterval time.Duration
-	// TemplatePublicBase 为模板 manifest/delta/mappings 的上游地址。
-	// 为空时模板读取接口返回 503。
-	TemplatePublicBase string
-	// TemplateProxyCache 为模板读取缓存时长。
-	TemplateProxyCache time.Duration
-	// TemplateIngestURL 为模板服务器未知模板上传端点；为空时上传接口返回 503。
-	TemplateIngestURL string
-	// TemplateIngestToken 是调用模板服务器的 Bearer 凭据。
-	TemplateIngestToken string
-	TemplateAdminURL    string
-	TemplateAdminToken  string
-	TemplateEventToken  string
+	// TemplateEventToken authenticates mapping/status notifications only. No template traffic is proxied.
+	TemplateEventToken string
 
 	Cloudflare Cloudflare
 }
@@ -126,12 +116,6 @@ func Load() (Config, error) {
 		MaintenanceSyncTimeout:  envDuration("MAINTENANCE_SYNC_TIMEOUT", 12*time.Second),
 		V3Enabled:               env("V3_ENABLED", "true") != "false",
 		AggInterval:             envDuration("AGG_INTERVAL", time.Hour),
-		TemplatePublicBase:      env("TEMPLATE_PUBLIC_BASE", "https://templates.azurpilot.com"),
-		TemplateProxyCache:      envDuration("TEMPLATE_PROXY_CACHE", 60*time.Second),
-		TemplateIngestURL:       env("TEMPLATE_INGEST_URL", ""),
-		TemplateIngestToken:     env("TEMPLATE_INGEST_TOKEN", ""),
-		TemplateAdminURL:        env("TEMPLATE_ADMIN_URL", ""),
-		TemplateAdminToken:      env("TEMPLATE_ADMIN_TOKEN", ""),
 		TemplateEventToken:      env("TEMPLATE_EVENT_TOKEN", ""),
 	}
 	cfg.Cloudflare = Cloudflare{
@@ -162,9 +146,6 @@ func Load() (Config, error) {
 	}
 	if cfg.AggInterval < time.Minute {
 		return cfg, fmt.Errorf("AGG_INTERVAL 至少为 1m")
-	}
-	if cfg.TemplateProxyCache <= 0 || cfg.TemplateProxyCache > time.Hour {
-		return cfg, fmt.Errorf("TEMPLATE_PROXY_CACHE 需在 1s–1h 之间")
 	}
 	return cfg, nil
 }
