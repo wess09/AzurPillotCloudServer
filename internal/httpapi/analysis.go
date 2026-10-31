@@ -6,6 +6,19 @@ import (
 	"net/http"
 )
 
+func (s *Server) handleV3Items(w http.ResponseWriter, r *http.Request) {
+	if s.deps.Drops == nil {
+		writeV3Error(w, r, errServiceUnavailable())
+		return
+	}
+	items, err := s.deps.Drops.CatalogItems(r.Context())
+	if err != nil {
+		writeV3Error(w, r, errInternal())
+		return
+	}
+	writeJSON(w, r, http.StatusOK, map[string]any{"schema_version": 3, "items": items})
+}
+
 func (s *Server) handleV3Analysis(w http.ResponseWriter, r *http.Request) {
 	if s.deps.Drops == nil {
 		writeV3Error(w, r, errServiceUnavailable())

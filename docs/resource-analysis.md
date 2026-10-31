@@ -16,7 +16,7 @@
 | `group_by` | `project`（默认）、`category`、`duration`；科研还支持 `series` |
 | `timezone` | 沿用 v3 时区校验；记录范围统一转换为 UTC |
 
-分类及单项 ID 来自嵌入的 `internal/drops/analysis_catalog.json`，不接受客户端自定义混合单位的目标集合。不存在的目标、区服、场景或分组返回 400。接口使用现有公开统计 CORS 来源配置，不要求管理凭据。
+分类及单项 ID 来自嵌入的 `internal/drops/analysis_catalog.json` 与模板服务已发布的物品定义，同 ID 以发布定义为准。`GET /api/v3/get/items` 返回合并后的目录，包括分类、稀有度、科研期数、所属版本、单位、统计场景、游戏 ID、阵营与舰种或装备类型。不接受客户端自定义混合单位的目标集合。不存在的目标、区服、场景或分组返回 400。接口使用现有公开统计 CORS 来源配置，不要求管理凭据。
 
 ## 返回与定义
 

@@ -29,8 +29,9 @@ type Event struct {
 }
 
 type Publication struct {
-	Revision   uint64                     `json:"revision"`
-	ReplaceIDs []v3db.TemplateItemMapping `json:"replace_ids"`
+	Revision   uint64                        `json:"revision"`
+	ReplaceIDs []v3db.TemplateItemMapping    `json:"replace_ids"`
+	Items      []v3db.TemplateItemDefinition `json:"items"`
 }
 
 func (event Event) Validate() error {
@@ -68,6 +69,19 @@ func (event Event) publication() (*Publication, error) {
 		if seen[mapping.ItemID] {
 			return nil, errors.New("mapping targets must be terminal IDs")
 		}
+	}
+	units := map[string]string{"blueprint-rainbow": "张", "blueprint-gold": "张", "gear-rainbow": "张", "gear-gold": "张", "gear-other": "张", "cube": "个", "coins": "物资", "oil": "石油", "chips": "个", "book": "本", "plate": "个", "retrofit": "张", "box": "个", "gems": "个", "drills": "个", "decor": "个"}
+	itemIDs := map[string]bool{}
+	for _, item := range result.Items {
+		if !itemIDPattern.MatchString(item.ID) || strings.HasPrefix(item.ID, "U-") || strings.TrimSpace(item.Name) == "" || len(item.Name) > 512 || units[item.Category] == "" || units[item.Category] != item.Unit || item.Rarity < 0 || item.Rarity > 5 || item.Series < 0 || item.Series > 100 || len(item.Scenes) == 0 || len(item.Scenes) > 2 || len(item.Version) > 256 || len(item.GameID) > 256 || len(item.Faction) > 256 || len(item.Subtype) > 256 || itemIDs[item.ID] {
+			return nil, errors.New("invalid item metadata")
+		}
+		for _, scene := range item.Scenes {
+			if scene != v3db.SceneResearch && scene != v3db.SceneCommission {
+				return nil, errors.New("invalid item scene")
+			}
+		}
+		itemIDs[item.ID] = true
 	}
 	return &result, nil
 }
@@ -115,6 +129,12 @@ func (s *Service) Apply(ctx context.Context, event Event, bodyHash string) error
 			return err
 		}
 		if publication != nil && publication.Revision > state.Revision {
+			for _, item := range publication.Items {
+				item.Revision = publication.Revision
+				if err := tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(&item).Error; err != nil {
+					return err
+				}
+			}
 			var changedIDs []any
 			for _, mapping := range publication.ReplaceIDs {
 				var old v3db.TemplateItemMapping

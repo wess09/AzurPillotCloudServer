@@ -132,5 +132,5 @@ func (CommissionCatalog) TableName() string { return "commission_catalog" }
 func AllModels() []any {
 	return []any{&DropEvent{}, &CommissionItem{}, &ResearchItem{},
 		&CommissionHourly{}, &CommissionItemHourly{}, &ResearchHourly{}, &ResearchItemHourly{},
-		&DirtyHour{}, &CommissionCatalog{}, &TemplateSyncState{}, &TemplateItemMapping{}, &TemplateEventReceipt{}}
+		&DirtyHour{}, &CommissionCatalog{}, &TemplateSyncState{}, &TemplateItemMapping{}, &TemplateEventReceipt{}, &TemplateItemDefinition{}}
 }

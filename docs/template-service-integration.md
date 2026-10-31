@@ -10,6 +10,8 @@
 
 `release.published` 事件事务提交后返回相同 event_id 的 ack。重复事件幂等，同 ID 异正文拒绝，旧版本不会覆盖新映射；模板 outbox 按序重试。原始统计保留 U-ID，受影响小时立即排队重新聚合，正式结果保留所有历史数量。
 
+发布事件可附带 `items` 数组，传递本次变化的物品定义：`id,name,category,rarity,series,version,unit,scenes,game_id,faction,subtype`。主服务与映射、事件回执在同一事务内按 ID 更新定义，公开物品目录与产物分析立即采用已发布的分类和单位。没有 `items` 的历史事件继续兼容；未发布草稿不会进入公开统计。
+
 公开统计独立部署到 `https://stats.azurpilot.com`，仅调用主服务 v3 GET 接口。两个 Cloudflare Pages 项目直接连接新前端仓库的 main 分支；不上传本地构建目录部署。
 
 模板完整协议见独立模板仓库 `docs/protocol.md`，部署配置见其 `docs/integration.md`。

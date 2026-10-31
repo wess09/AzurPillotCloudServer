@@ -24,8 +24,18 @@ import (
 var analysisCatalogJSON []byte
 
 type analysisItem struct {
-	ID, Name, Category, Unit string
-	Aliases, Scenes          []string
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Category string   `json:"category"`
+	Unit     string   `json:"unit"`
+	Aliases  []string `json:"aliases"`
+	Scenes   []string `json:"scenes"`
+	Rarity   int      `json:"rarity"`
+	Series   int      `json:"series"`
+	Version  string   `json:"version"`
+	GameID   string   `json:"game_id"`
+	Faction  string   `json:"faction"`
+	Subtype  string   `json:"subtype"`
 }
 type analysisProject struct {
 	ID, Name, Category string
@@ -107,6 +117,10 @@ type AnalysisResult struct {
 }
 
 func analysisTarget(q AnalysisQuery) (map[string]bool, string, error) {
+	return analysisTargetItems(q, catalog.Items)
+}
+
+func analysisTargetItems(q AnalysisQuery, items []analysisItem) (map[string]bool, string, error) {
 	if q.Scene != v3db.SceneResearch && q.Scene != v3db.SceneCommission {
 		return nil, "", ErrAnalysisQuery
 	}
@@ -123,7 +137,7 @@ func analysisTarget(q AnalysisQuery) (map[string]bool, string, error) {
 		return nil, "", ErrAnalysisQuery
 	}
 	selected, unit := map[string]bool{}, ""
-	for _, item := range catalog.Items {
+	for _, item := range items {
 		if q.Target != "item:"+item.ID && q.Target != "category:"+item.Category {
 			continue
 		}
@@ -150,7 +164,11 @@ func analysisTarget(q AnalysisQuery) (map[string]bool, string, error) {
 // counts an event once, even when multiple matching items/tags occur in that event.
 // Zero drops are added before any target-item filtering, preserving denominators.
 func (s *Service) Analysis(ctx context.Context, q AnalysisQuery) (AnalysisResult, error) {
-	selected, unit, err := analysisTarget(q)
+	items, err := s.CatalogItems(ctx)
+	if err != nil {
+		return AnalysisResult{}, err
+	}
+	selected, unit, err := analysisTargetItems(q, items)
 	result := AnalysisResult{Groups: []AnalysisGroup{}, Unit: unit}
 	if err != nil {
 		return result, err
