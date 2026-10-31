@@ -58,11 +58,16 @@ func (event Event) publication() (*Publication, error) {
 	seen := make(map[string]bool)
 	for _, mapping := range result.ReplaceIDs {
 		if !strings.HasPrefix(mapping.UnknownID, "U-") || !itemIDPattern.MatchString(mapping.UnknownID) ||
-			!itemIDPattern.MatchString(mapping.ItemID) || strings.HasPrefix(mapping.ItemID, "U-") ||
+			!itemIDPattern.MatchString(mapping.ItemID) ||
 			strings.TrimSpace(mapping.Name) == "" || len(mapping.Name) > 512 || len(mapping.Tag) > 128 || seen[mapping.UnknownID] {
 			return nil, errors.New("invalid item mapping")
 		}
 		seen[mapping.UnknownID] = true
+	}
+	for _, mapping := range result.ReplaceIDs {
+		if seen[mapping.ItemID] {
+			return nil, errors.New("mapping targets must be terminal IDs")
+		}
 	}
 	return &result, nil
 }

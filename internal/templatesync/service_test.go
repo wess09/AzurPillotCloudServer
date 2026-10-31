@@ -117,10 +117,14 @@ func TestPublishedMappingRepairsHistoryAndRejectsConflictingReplay(t *testing.T)
 	}
 }
 
-func TestValidateRejectsUnknownEventAndTemporaryTarget(t *testing.T) {
+func TestValidateAllowsTemporaryAliasAndRejectsInvalidTargets(t *testing.T) {
 	event := Event{EventID: "e459b41d-2db6-454f-9187-ff6d226d79f1", Sequence: 1, Type: "release.published", Revision: 1, CreatedAt: "2026-10-30T00:00:00Z", Payload: json.RawMessage(`{"revision":1,"replace_ids":[{"unknown_id":"U-TEST","item_id":"U-OTHER","name":"错误"}]}`)}
+	if err := event.Validate(); err != nil {
+		t.Fatalf("temporary alias rejected: %v", err)
+	}
+	event.Payload = json.RawMessage(`{"revision":1,"replace_ids":[{"unknown_id":"U-TEST","item_id":"U-TEST","name":"循环"}]}`)
 	if event.Validate() == nil {
-		t.Fatal("temporary mapping target accepted")
+		t.Fatal("self alias accepted")
 	}
 	event.Type = "arbitrary"
 	if event.Validate() == nil {
