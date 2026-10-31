@@ -7,7 +7,7 @@ func publicCORSMiddleware(origins []string, next http.Handler) http.Handler {
 		// Only public statistics are browser HTTP APIs. Retired paths must stay
 		// absent even for preflight requests; management authenticates over WS.
 		switch r.URL.Path {
-		case "/api/v3/get/commission", "/api/v3/get/commission/options", "/api/v3/get/research", "/api/v3/get/research/options", "/api/v3/post/drops":
+		case "/api/v3/get/analysis", "/api/v3/get/commission", "/api/v3/get/commission/options", "/api/v3/get/research", "/api/v3/get/research/options", "/api/v3/post/drops":
 		default:
 			next.ServeHTTP(w, r)
 			return

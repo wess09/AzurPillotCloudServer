@@ -64,6 +64,8 @@ func TestPublicCORSIsLimitedToStatistics(t *testing.T) {
 		status       int
 	}{
 		{"/api/v3/get/research", "https://stats.azurpilot.com", 204},
+		{"/api/v3/get/analysis", "https://stats.azurpilot.com", 204},
+		{"/api/v3/get/analysis", "https://other.example", 403},
 		{"/api/v3/get/research", "https://other.example", 403},
 		{"/api/v2/get/research", "https://stats.azurpilot.com", 404},
 		{"/api/upload", "https://stats.azurpilot.com", 404},

@@ -120,6 +120,7 @@ func New(deps Deps) *Server {
 	mux.HandleFunc("GET /api/v3/get/commission/options", s.handleV3CommissionOptions)
 	mux.HandleFunc("GET /api/v3/get/research", s.handleV3Research)
 	mux.HandleFunc("GET /api/v3/get/research/options", s.handleV3ResearchOptions)
+	mux.HandleFunc("GET /api/v3/get/analysis", s.handleV3Analysis)
 	mux.Handle("GET /api/v1/admin/ws", s.adminSocket)
 	// 兜底：统一 404 错误信封。
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
