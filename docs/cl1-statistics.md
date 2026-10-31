@@ -2,13 +2,12 @@
 
 `GET /api/v3/get/cl1` 返回 `schema_version: 3` 与 `result`，不需要设备或管理凭据。`result.total` 为累计汇总，`result.history` 为按月份倒序排列的汇总，`result.updated_at` 为最新快照更新时间，无数据时为 null。
 
-数据来自现有 `cl1_snapshots`：每个设备、实例、月份只保存一份累计快照。重复提交更新原快照，不累加上报次数。公开响应不包含设备或实例编号。
+数据来自现有 `cl1_snapshots`：每个设备、实例、月份只保存一份累计快照。重复提交更新原快照，不累加上报次数。公开响应不包含设备数量、设备编号或实例编号，汇总查询不读取设备编号。
 
 每个范围先合计所有实例的 `battle_count`、`akashi_encounters`、`akashi_ap`，再统一计算：
 
 | 字段 | 计算 |
 | --- | --- |
-| `devices` | 范围内不同设备数量，跨实例和月份去重 |
 | `battle_count` | 战斗总场数 |
 | `battle_rounds` | 战斗总场数 ÷ 2，向上取整；在汇总后取整 |
 | `akashi_encounters` | 明石遭遇总次数 |

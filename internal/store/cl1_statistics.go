@@ -8,7 +8,6 @@ import (
 
 // Cl1Metrics contains public totals, never device or instance identifiers.
 type Cl1Metrics struct {
-	Devices           int     `json:"devices"`
 	BattleCount       int64   `json:"battle_count"`
 	BattleRounds      int64   `json:"battle_rounds"`
 	AkashiEncounters  int64   `json:"akashi_encounters"`
@@ -33,14 +32,9 @@ type Cl1Statistics struct {
 
 type cl1Accumulator struct {
 	Cl1Metrics
-	devices map[string]struct{}
 }
 
 func (a *cl1Accumulator) add(row Cl1Snapshot) {
-	if a.devices == nil {
-		a.devices = make(map[string]struct{})
-	}
-	a.devices[row.DeviceID] = struct{}{}
 	a.BattleCount += row.BattleCount
 	a.AkashiEncounters += row.AkashiEncounters
 	a.AkashiAP += row.AkashiAP
@@ -48,7 +42,6 @@ func (a *cl1Accumulator) add(row Cl1Snapshot) {
 
 func (a *cl1Accumulator) metrics() Cl1Metrics {
 	m := a.Cl1Metrics
-	m.Devices = len(a.devices)
 	// Calculate once after summing all instances in this scope. Division and
 	// remainder implement ceil(total battles / 2) without overflowing int64.
 	m.BattleRounds = m.BattleCount/2 + m.BattleCount%2
@@ -71,7 +64,7 @@ func (a *cl1Accumulator) metrics() Cl1Metrics {
 func (s *Store) Cl1Statistics(ctx context.Context) (Cl1Statistics, error) {
 	out := Cl1Statistics{History: []Cl1Month{}}
 	rows, err := s.DB.WithContext(ctx).Model(&Cl1Snapshot{}).
-		Select("device_id", "month", "battle_count", "akashi_encounters", "akashi_ap", "updated_at").Rows()
+		Select("month", "battle_count", "akashi_encounters", "akashi_ap", "updated_at").Rows()
 	if err != nil {
 		return out, err
 	}
