@@ -18,6 +18,8 @@ import (
 var ErrConflict = errors.New("event ID reused with a different body")
 var eventIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 var itemIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_. -]{0,127}$`)
+var gameObjectIDPattern = regexp.MustCompile(`^(?:[0-9]{1,16})?$`)
+var itemTierPattern = regexp.MustCompile(`^(?:T[0-9]{1,2})?$`)
 
 type Event struct {
 	EventID   string          `json:"event_id"`
@@ -73,7 +75,13 @@ func (event Event) publication() (*Publication, error) {
 	units := map[string]string{"blueprint-rainbow": "张", "blueprint-gold": "张", "gear-rainbow": "张", "gear-gold": "张", "gear-other": "张", "cube": "个", "coins": "物资", "oil": "石油", "chips": "个", "book": "本", "plate": "个", "retrofit": "张", "box": "个", "gems": "个", "drills": "个", "decor": "个"}
 	itemIDs := map[string]bool{}
 	for _, item := range result.Items {
-		if !itemIDPattern.MatchString(item.ID) || strings.HasPrefix(item.ID, "U-") || strings.TrimSpace(item.Name) == "" || len(item.Name) > 512 || units[item.Category] == "" || units[item.Category] != item.Unit || item.Rarity < 0 || item.Rarity > 5 || item.Series < 0 || item.Series > 100 || len(item.Scenes) == 0 || len(item.Scenes) > 2 || len(item.Version) > 256 || len(item.GameID) > 256 || len(item.Faction) > 256 || len(item.Subtype) > 256 || itemIDs[item.ID] {
+		if !gameObjectIDPattern.MatchString(item.ShipID) || !gameObjectIDPattern.MatchString(item.EquipmentID) || !itemTierPattern.MatchString(item.Tier) || (item.ShipID != "" && !strings.HasPrefix(item.Category, "blueprint-")) || (item.EquipmentID != "" && !strings.HasPrefix(item.Category, "gear-")) {
+			return nil, errors.New("invalid item association or tier")
+		}
+		if (strings.HasSuffix(item.Category, "rainbow") && item.Rarity != 5) || (strings.HasSuffix(item.Category, "gold") && item.Rarity != 4) || (item.Category == "gear-other" && item.Rarity >= 4) {
+			return nil, errors.New("item rarity does not match category")
+		}
+		if !itemIDPattern.MatchString(item.ID) || strings.HasPrefix(item.ID, "U-") || strings.TrimSpace(item.Name) == "" || len(item.Name) > 512 || units[item.Category] == "" || units[item.Category] != item.Unit || item.Rarity < 0 || item.Rarity > 9 || item.Series < 0 || item.Series > 100 || len(item.Scenes) == 0 || len(item.Scenes) > 2 || len(item.Version) > 256 || len(item.GameID) > 256 || len(item.Faction) > 256 || len(item.Subtype) > 256 || itemIDs[item.ID] {
 			return nil, errors.New("invalid item metadata")
 		}
 		for _, scene := range item.Scenes {

@@ -24,18 +24,21 @@ import (
 var analysisCatalogJSON []byte
 
 type analysisItem struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Category string   `json:"category"`
-	Unit     string   `json:"unit"`
-	Aliases  []string `json:"aliases"`
-	Scenes   []string `json:"scenes"`
-	Rarity   int      `json:"rarity"`
-	Series   int      `json:"series"`
-	Version  string   `json:"version"`
-	GameID   string   `json:"game_id"`
-	Faction  string   `json:"faction"`
-	Subtype  string   `json:"subtype"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Unit        string   `json:"unit"`
+	Aliases     []string `json:"aliases"`
+	Scenes      []string `json:"scenes"`
+	Rarity      int      `json:"rarity"`
+	Series      int      `json:"series"`
+	Version     string   `json:"version"`
+	GameID      string   `json:"game_id"`
+	Faction     string   `json:"faction"`
+	Subtype     string   `json:"subtype"`
+	ShipID      string   `json:"ship_id"`
+	EquipmentID string   `json:"equipment_id"`
+	Tier        string   `json:"tier"`
 }
 type analysisProject struct {
 	ID, Name, Category string

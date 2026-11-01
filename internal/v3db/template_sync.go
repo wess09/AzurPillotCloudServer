@@ -24,18 +24,21 @@ type TemplateItemMapping struct {
 func (TemplateItemMapping) TableName() string { return "template_item_mappings" }
 
 type TemplateItemDefinition struct {
-	ID       string   `gorm:"type:varchar(128);primaryKey" json:"id"`
-	Name     string   `gorm:"type:varchar(128);not null" json:"name"`
-	Category string   `gorm:"type:varchar(32);not null" json:"category"`
-	Unit     string   `gorm:"type:varchar(16);not null" json:"unit"`
-	Rarity   int      `json:"rarity"`
-	Series   int      `json:"series"`
-	Version  string   `gorm:"type:varchar(64)" json:"version"`
-	Scenes   []string `gorm:"serializer:json;type:text" json:"scenes"`
-	GameID   string   `gorm:"type:varchar(64)" json:"game_id"`
-	Faction  string   `gorm:"type:varchar(64)" json:"faction"`
-	Subtype  string   `gorm:"type:varchar(64)" json:"subtype"`
-	Revision uint64   `json:"-"`
+	ID          string   `gorm:"type:varchar(128);primaryKey" json:"id"`
+	Name        string   `gorm:"type:varchar(128);not null" json:"name"`
+	Category    string   `gorm:"type:varchar(32);not null" json:"category"`
+	Unit        string   `gorm:"type:varchar(16);not null" json:"unit"`
+	Rarity      int      `json:"rarity"`
+	Series      int      `json:"series"`
+	Version     string   `gorm:"type:varchar(64)" json:"version"`
+	Scenes      []string `gorm:"serializer:json;type:text" json:"scenes"`
+	GameID      string   `gorm:"type:varchar(64)" json:"game_id"`
+	Faction     string   `gorm:"type:varchar(64)" json:"faction"`
+	Subtype     string   `gorm:"type:varchar(64)" json:"subtype"`
+	ShipID      string   `gorm:"type:varchar(16)" json:"ship_id"`
+	EquipmentID string   `gorm:"type:varchar(16)" json:"equipment_id"`
+	Tier        string   `gorm:"type:varchar(8)" json:"tier"`
+	Revision    uint64   `json:"-"`
 }
 
 func (TemplateItemDefinition) TableName() string { return "template_item_definitions" }

@@ -18,7 +18,7 @@ func (s *Service) CatalogItems(ctx context.Context) ([]analysisItem, error) {
 	}
 	for _, item := range definitions {
 		prior := items[item.ID]
-		items[item.ID] = analysisItem{ID: item.ID, Name: item.Name, Category: item.Category, Unit: item.Unit, Aliases: prior.Aliases, Scenes: item.Scenes, Rarity: item.Rarity, Series: item.Series, Version: item.Version, GameID: item.GameID, Faction: item.Faction, Subtype: item.Subtype}
+		items[item.ID] = analysisItem{ID: item.ID, Name: item.Name, Category: item.Category, Unit: item.Unit, Aliases: prior.Aliases, Scenes: item.Scenes, Rarity: item.Rarity, Series: item.Series, Version: item.Version, GameID: item.GameID, Faction: item.Faction, Subtype: item.Subtype, ShipID: item.ShipID, EquipmentID: item.EquipmentID, Tier: item.Tier}
 	}
 	result := make([]analysisItem, 0, len(items))
 	for _, item := range items {

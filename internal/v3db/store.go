@@ -31,6 +31,8 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 		return tx.Migrator().DropTable("schema_guard")
 	}}, database.Migration{Version: 2, Apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&TemplateItemDefinition{})
+	}}, database.Migration{Version: 3, Apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&TemplateItemDefinition{})
 	}})
 }
 
