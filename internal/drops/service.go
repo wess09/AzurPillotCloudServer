@@ -29,6 +29,7 @@ var (
 	recordIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]{8,128}$`)
 	itemRE     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_. -]{0,127}$`)
 	tagRE      = regexp.MustCompile(`^[A-Za-z0-9_-]{0,32}$`)
+	sourceIDRE = regexp.MustCompile(`^[0-9a-fA-F]{32}([0-9a-fA-F]{32})?$`)
 )
 
 var allowedServers = map[string]bool{
@@ -97,8 +98,19 @@ func (s *Service) WithClock(now func() time.Time) *Service {
 // Submit 逐条校验并写入。单条数据库错误只影响该条，回执为 retry。
 func (s *Service) Submit(ctx context.Context, list []Drop) []Ack {
 	acks := make([]Ack, 0, len(list))
+	rules := pinnedRewardRules
+	if s.db != nil {
+		items, err := s.CatalogItems(ctx)
+		if err != nil {
+			for _, d := range list {
+				acks = append(acks, Ack{RecordID: d.RecordID, Status: AckRetry, Error: "物品目录暂不可用"})
+			}
+			return acks
+		}
+		rules = rewardRules(items)
+	}
 	for _, d := range list {
-		v, status, msg := s.validate(d)
+		v, status, msg := s.validateRewards(d, rules)
 		if status != "" {
 			acks = append(acks, Ack{RecordID: d.RecordID, Status: status, Error: msg})
 			continue
@@ -114,6 +126,10 @@ func (s *Service) Submit(ctx context.Context, list []Drop) []Ack {
 }
 
 func (s *Service) validate(d Drop) (validated, string, string) {
+	return s.validateRewards(d, pinnedRewardRules)
+}
+
+func (s *Service) validateRewards(d Drop, rules map[string]rewardRule) (validated, string, string) {
 	if !recordIDRE.MatchString(d.RecordID) {
 		return validated{}, AckInvalid, "record_id 必须是 8–128 位字母、数字、下划线或连字符"
 	}
@@ -131,22 +147,38 @@ func (s *Service) validate(d Drop) (validated, string, string) {
 		return validated{}, AckInvalid, "collected_at 必须是带时区的 RFC3339 时间"
 	}
 	now := s.now()
-	if collected.Before(now.Add(-7*24*time.Hour)) || collected.After(now.Add(7*24*time.Hour)) {
+	if collected.Before(now.Add(-7*24*time.Hour)) || collected.After(now.Add(5*time.Minute)) {
 		return validated{}, AckInvalid, "collected_at 超出允许的时钟偏差"
 	}
 	if len(d.Client) > 64 || len(d.DeviceID) > 64 || len(d.Name) > 128 {
 		return validated{}, AckInvalid, "字段长度超限"
 	}
+	d.Client, d.DeviceID = strings.TrimSpace(d.Client), strings.ToLower(strings.TrimSpace(d.DeviceID))
+	if d.Client == "" || !sourceIDRE.MatchString(d.DeviceID) || d.TemplateRevision < 0 {
+		return validated{}, AckInvalid, "必须提供合法的设备标识、客户端和模板版本"
+	}
 	if len(d.Items) == 0 || len(d.Items) > 200 {
 		return validated{}, AckInvalid, "items 数量必须在 1–200 之间"
 	}
 	items := make([]Item, 0, len(d.Items))
+	totals := make(map[string]int64)
 	for _, it := range d.Items {
 		it.Item = strings.TrimSpace(it.Item)
 		it.Tag = strings.TrimSpace(it.Tag)
-		if !itemRE.MatchString(it.Item) || it.Amount < 1 || it.Amount > 1_000_000_000 {
+		if !itemRE.MatchString(it.Item) || it.Amount < 1 {
 			return validated{}, AckInvalid, "物品名称或数量非法"
 		}
+		rule := rules[it.Item]
+		canonical := rule.id
+		if canonical == "" {
+			canonical = it.Item
+		}
+		limit := rewardLimit(d.Scene, canonical, rule.category)
+		// Count every tag/alias together before comparing: splitting rows cannot evade the bound.
+		if it.Amount > limit || totals[canonical] > limit-it.Amount {
+			return validated{}, AckInvalid, "奖励数量明显超出现有样本的合理范围"
+		}
+		totals[canonical] += it.Amount
 		if !tagRE.MatchString(it.Tag) {
 			return validated{}, AckInvalid, "物品标签非法"
 		}
@@ -165,6 +197,9 @@ func (s *Service) validate(d Drop) (validated, string, string) {
 		d.Project = strings.TrimSpace(d.Project)
 		if d.Series < 1 || d.Series > 100 || d.Project == "" || len(d.Project) > 128 {
 			return validated{}, AckInvalid, "科研必须提供 1–100 的 series 与 project"
+		}
+		if _, ok := catalog.Research[fmt.Sprintf("%d:%s", d.Series, d.Project)]; !ok {
+			return validated{}, AckInvalid, "科研期数与项目不匹配"
 		}
 		d.Comm, d.Name = "", ""
 	}

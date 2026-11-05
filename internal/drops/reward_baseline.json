@@ -1,0 +1,2716 @@
+{
+  "commission": {
+    "BookBlueT2": {
+      "Samples": 491,
+      "P99": 2,
+      "Max": 2
+    },
+    "BookBlueT3": {
+      "Samples": 38,
+      "P99": 2,
+      "Max": 11
+    },
+    "BookRedT2": {
+      "Samples": 538,
+      "P99": 2,
+      "Max": 71
+    },
+    "BookRedT3": {
+      "Samples": 50,
+      "P99": 2,
+      "Max": 2
+    },
+    "BookYellowT2": {
+      "Samples": 510,
+      "P99": 2,
+      "Max": 2
+    },
+    "BookYellowT3": {
+      "Samples": 38,
+      "P99": 2,
+      "Max": 2
+    },
+    "BoxT2": {
+      "Samples": 1080,
+      "P99": 1,
+      "Max": 1
+    },
+    "BoxT3": {
+      "Samples": 2025,
+      "P99": 1,
+      "Max": 1
+    },
+    "BoxT4": {
+      "Samples": 431,
+      "P99": 1,
+      "Max": 1
+    },
+    "CognitiveChips": {
+      "Samples": 9862,
+      "P99": 32,
+      "Max": 32
+    },
+    "Coins": {
+      "Samples": 24229,
+      "P99": 452,
+      "Max": 4994
+    },
+    "Cubes": {
+      "Samples": 5317,
+      "P99": 4,
+      "Max": 6
+    },
+    "DecorCoins": {
+      "Samples": 42577,
+      "P99": 22,
+      "Max": 39
+    },
+    "Drills": {
+      "Samples": 2814,
+      "P99": 4,
+      "Max": 4
+    },
+    "Gems": {
+      "Samples": 1830,
+      "P99": 78,
+      "Max": 80
+    },
+    "Oil": {
+      "Samples": 39067,
+      "P99": 582,
+      "Max": 991
+    },
+    "PlaceHolder": {
+      "Samples": 11544,
+      "P99": 1,
+      "Max": 1
+    },
+    "PlateAntiAirT1": {
+      "Samples": 54,
+      "P99": 73,
+      "Max": 75
+    },
+    "PlateAntiAirT2": {
+      "Samples": 64,
+      "P99": 5,
+      "Max": 5
+    },
+    "PlateAntiAirT3": {
+      "Samples": 73,
+      "P99": 7,
+      "Max": 9
+    },
+    "PlateGeneralT1": {
+      "Samples": 69,
+      "P99": 75,
+      "Max": 75
+    },
+    "PlateGeneralT2": {
+      "Samples": 62,
+      "P99": 5,
+      "Max": 6
+    },
+    "PlateGeneralT3": {
+      "Samples": 54,
+      "P99": 7,
+      "Max": 10
+    },
+    "PlateGunT1": {
+      "Samples": 55,
+      "P99": 75,
+      "Max": 75
+    },
+    "PlateGunT2": {
+      "Samples": 60,
+      "P99": 5,
+      "Max": 5
+    },
+    "PlateGunT3": {
+      "Samples": 68,
+      "P99": 5,
+      "Max": 5
+    },
+    "PlatePlaneT1": {
+      "Samples": 62,
+      "P99": 73,
+      "Max": 75
+    },
+    "PlatePlaneT2": {
+      "Samples": 62,
+      "P99": 5,
+      "Max": 5
+    },
+    "PlatePlaneT3": {
+      "Samples": 72,
+      "P99": 6,
+      "Max": 8
+    },
+    "PlateTorpedoT1": {
+      "Samples": 60,
+      "P99": 75,
+      "Max": 75
+    },
+    "PlateTorpedoT2": {
+      "Samples": 64,
+      "P99": 5,
+      "Max": 8
+    },
+    "PlateTorpedoT3": {
+      "Samples": 74,
+      "P99": 7,
+      "Max": 7
+    },
+    "RetrofitBattleshipT1": {
+      "Samples": 287,
+      "P99": 1,
+      "Max": 1
+    },
+    "RetrofitCarrierT1": {
+      "Samples": 351,
+      "P99": 1,
+      "Max": 1
+    },
+    "RetrofitCruiserT1": {
+      "Samples": 315,
+      "P99": 1,
+      "Max": 1
+    },
+    "RetrofitDestroyerT1": {
+      "Samples": 284,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-03ED10FA2F7A": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-1014BFCE5F2D": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-14D44600D12A": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-1A265FA48D29": {
+      "Samples": 1,
+      "P99": 7,
+      "Max": 7
+    },
+    "U-1C95B156DC4A": {
+      "Samples": 3,
+      "P99": 92,
+      "Max": 170
+    },
+    "U-1D5EC4AA7F7F": {
+      "Samples": 1,
+      "P99": 16,
+      "Max": 16
+    },
+    "U-1F2B0CE0E12A": {
+      "Samples": 1,
+      "P99": 11,
+      "Max": 11
+    },
+    "U-245248223446": {
+      "Samples": 1,
+      "P99": 271,
+      "Max": 271
+    },
+    "U-2C686D10E515": {
+      "Samples": 3,
+      "P99": 25,
+      "Max": 32
+    },
+    "U-2E0474CCBCB9": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-3A8603382341": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-3D19C96E9237": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-3D5A1243C6D5": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-4C500FBA77CB": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-628749E768DB": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-6770435C5F81": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-6C51809BF8BE": {
+      "Samples": 1,
+      "P99": 60,
+      "Max": 60
+    },
+    "U-738C0220D8DF": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-783DFE13403E": {
+      "Samples": 2,
+      "P99": 5,
+      "Max": 10
+    },
+    "U-7B765DD70D12": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-7CF01CCFF4E2": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-80DD9D90A197": {
+      "Samples": 1,
+      "P99": 79,
+      "Max": 79
+    },
+    "U-885690BEA1DD": {
+      "Samples": 1,
+      "P99": 93,
+      "Max": 93
+    },
+    "U-8B76FADFD6F8": {
+      "Samples": 4,
+      "P99": 144,
+      "Max": 451
+    },
+    "U-8DE9F468FBF3": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-95BBA3B96DC9": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 221
+    },
+    "U-975BA020B78A": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-986F865BB969": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-994E5B69C7B6": {
+      "Samples": 2,
+      "P99": 82,
+      "Max": 107
+    },
+    "U-9E7E72D62496": {
+      "Samples": 1,
+      "P99": 21,
+      "Max": 21
+    },
+    "U-A1131B74E541": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-B11352AECB28": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-BB0A9458BEA5": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-BBF44629E455": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CC308036D899": {
+      "Samples": 1,
+      "P99": 649,
+      "Max": 649
+    },
+    "U-E0FAE36DE075": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-E447BCD59A0F": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-E5495B503DA3": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-F259DE280F5D": {
+      "Samples": 1,
+      "P99": 133,
+      "Max": 133
+    },
+    "U-FD2EC46685FD": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-FF017E3278A3": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    }
+  },
+  "research": {
+    "533mm_Quadruple_Torpedo_Mount_T3": {
+      "Samples": 481,
+      "P99": 2,
+      "Max": 2
+    },
+    "533mm_Quintuple_Torpedo_Mount_T2": {
+      "Samples": 489,
+      "P99": 2,
+      "Max": 2
+    },
+    "533mm_Quintuple_Torpedo_Mount_T3": {
+      "Samples": 417,
+      "P99": 4,
+      "Max": 4
+    },
+    "533mm_Triple_Magnetic_Torpedo_Mount_T2": {
+      "Samples": 930,
+      "P99": 1,
+      "Max": 2
+    },
+    "533mm_Triple_Magnetic_Torpedo_Mount_T3": {
+      "Samples": 510,
+      "P99": 2,
+      "Max": 2
+    },
+    "533mm_Triple_Torpedo_Mount_T3": {
+      "Samples": 945,
+      "P99": 1,
+      "Max": 2
+    },
+    "550mm_Triple_Torpedo_Launcher_T3": {
+      "Samples": 481,
+      "P99": 2,
+      "Max": 2
+    },
+    "550mm_Twin_Torpedo_Launcher_T3": {
+      "Samples": 908,
+      "P99": 1,
+      "Max": 2
+    },
+    "610mm_Quadruple_Torpedo_Mount_T2": {
+      "Samples": 348,
+      "P99": 1,
+      "Max": 1
+    },
+    "610mm_Quadruple_Torpedo_Mount_T3": {
+      "Samples": 437,
+      "P99": 4,
+      "Max": 6
+    },
+    "610mm_Triple_Torpedo_Mount_T3": {
+      "Samples": 473,
+      "P99": 2,
+      "Max": 2
+    },
+    "610mm_Twin_Torpedo_Mount_T3": {
+      "Samples": 975,
+      "P99": 1,
+      "Max": 2
+    },
+    "76mm_AA_Gun_T3": {
+      "Samples": 501,
+      "P99": 2,
+      "Max": 2
+    },
+    "76mm_Gun_T3": {
+      "Samples": 933,
+      "P99": 1,
+      "Max": 2
+    },
+    "A5M_Claude_T3": {
+      "Samples": 921,
+      "P99": 1,
+      "Max": 2
+    },
+    "A7M_Reppuu_T1": {
+      "Samples": 920,
+      "P99": 1,
+      "Max": 2
+    },
+    "A7M_Reppuu_T2": {
+      "Samples": 460,
+      "P99": 2,
+      "Max": 2
+    },
+    "A7M_Reppuu_T3": {
+      "Samples": 449,
+      "P99": 4,
+      "Max": 6
+    },
+    "Advanced_Boiler_T3": {
+      "Samples": 502,
+      "P99": 2,
+      "Max": 2
+    },
+    "Aichi_B7A_Ryusei_T1": {
+      "Samples": 936,
+      "P99": 1,
+      "Max": 2
+    },
+    "Aichi_B7A_Ryusei_T2": {
+      "Samples": 476,
+      "P99": 2,
+      "Max": 2
+    },
+    "Aichi_B7A_Ryusei_T3": {
+      "Samples": 401,
+      "P99": 4,
+      "Max": 4
+    },
+    "Aichi_E16A_Zuiun_T2": {
+      "Samples": 969,
+      "P99": 1,
+      "Max": 2
+    },
+    "Aichi_E16A_Zuiun_T3": {
+      "Samples": 490,
+      "P99": 2,
+      "Max": 2
+    },
+    "Air_Radar_T3": {
+      "Samples": 466,
+      "P99": 2,
+      "Max": 4
+    },
+    "Anti_Torpedo_Bulge_T3": {
+      "Samples": 442,
+      "P99": 2,
+      "Max": 2
+    },
+    "Autoloader_T3": {
+      "Samples": 477,
+      "P99": 2,
+      "Max": 2
+    },
+    "Aviation_Oil_Tank_T3": {
+      "Samples": 472,
+      "P99": 2,
+      "Max": 2
+    },
+    "BF_109T_Fighter_T2": {
+      "Samples": 929,
+      "P99": 1,
+      "Max": 2
+    },
+    "BF_109T_Fighter_T3": {
+      "Samples": 489,
+      "P99": 2,
+      "Max": 2
+    },
+    "BTD_1_Destroyer_T2": {
+      "Samples": 437,
+      "P99": 2,
+      "Max": 2
+    },
+    "BTD_1_Destroyer_T3": {
+      "Samples": 385,
+      "P99": 2,
+      "Max": 4
+    },
+    "Barracuda_T2": {
+      "Samples": 443,
+      "P99": 2,
+      "Max": 2
+    },
+    "Barracuda_T3": {
+      "Samples": 406,
+      "P99": 2,
+      "Max": 4
+    },
+    "Blackburn_Skua_T3": {
+      "Samples": 868,
+      "P99": 1,
+      "Max": 2
+    },
+    "BlueprintAdmiralNakhimov": {
+      "Samples": 410,
+      "P99": 3,
+      "Max": 6
+    },
+    "BlueprintAgir": {
+      "Samples": 83,
+      "P99": 3,
+      "Max": 3
+    },
+    "BlueprintAnchorage": {
+      "Samples": 247,
+      "P99": 3,
+      "Max": 8
+    },
+    "BlueprintAugust": {
+      "Samples": 307,
+      "P99": 3,
+      "Max": 6
+    },
+    "BlueprintAzuma": {
+      "Samples": 117,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintBayard": {
+      "Samples": 2622,
+      "P99": 3,
+      "Max": 8
+    },
+    "BlueprintBrest": {
+      "Samples": 262,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintCheshire": {
+      "Samples": 211,
+      "P99": 2,
+      "Max": 2
+    },
+    "BlueprintChkalov": {
+      "Samples": 39,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintDaisen": {
+      "Samples": 553,
+      "P99": 4,
+      "Max": 10
+    },
+    "BlueprintDmitriDonskoi": {
+      "Samples": 1142,
+      "P99": 4,
+      "Max": 9
+    },
+    "BlueprintDrake": {
+      "Samples": 238,
+      "P99": 2,
+      "Max": 2
+    },
+    "BlueprintDuncan": {
+      "Samples": 5038,
+      "P99": 4,
+      "Max": 10
+    },
+    "BlueprintFelixSchultz": {
+      "Samples": 188,
+      "P99": 3,
+      "Max": 10
+    },
+    "BlueprintFlandre": {
+      "Samples": 408,
+      "P99": 3,
+      "Max": 8
+    },
+    "BlueprintFriedrich": {
+      "Samples": 99,
+      "P99": 3,
+      "Max": 3
+    },
+    "BlueprintGascogne": {
+      "Samples": 315,
+      "P99": 2,
+      "Max": 8
+    },
+    "BlueprintGeorgia": {
+      "Samples": 103,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintGoudenLeeuw": {
+      "Samples": 786,
+      "P99": 4,
+      "Max": 6
+    },
+    "BlueprintHakuryuu": {
+      "Samples": 347,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintHalford": {
+      "Samples": 537,
+      "P99": 3,
+      "Max": 4
+    },
+    "BlueprintHarbin": {
+      "Samples": 211,
+      "P99": 3,
+      "Max": 3
+    },
+    "BlueprintHindenburg": {
+      "Samples": 212,
+      "P99": 3,
+      "Max": 4
+    },
+    "BlueprintIbuki": {
+      "Samples": 576,
+      "P99": 3,
+      "Max": 3
+    },
+    "BlueprintIzumo": {
+      "Samples": 93,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintKansas": {
+      "Samples": 1120,
+      "P99": 4,
+      "Max": 10
+    },
+    "BlueprintKearsarge": {
+      "Samples": 375,
+      "P99": 3,
+      "Max": 4
+    },
+    "BlueprintKitakaze": {
+      "Samples": 14,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintMainz": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 2
+    },
+    "BlueprintMarcopolo": {
+      "Samples": 57,
+      "P99": 3,
+      "Max": 3
+    },
+    "BlueprintMaxImmelmann": {
+      "Samples": 5638,
+      "P99": 4,
+      "Max": 6
+    },
+    "BlueprintMecklenburg": {
+      "Samples": 762,
+      "P99": 4,
+      "Max": 6
+    },
+    "BlueprintMonarch": {
+      "Samples": 75,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintNapoli": {
+      "Samples": 417,
+      "P99": 3,
+      "Max": 6
+    },
+    "BlueprintNeptune": {
+      "Samples": 26,
+      "P99": 2,
+      "Max": 6
+    },
+    "BlueprintOdin": {
+      "Samples": 87,
+      "P99": 2,
+      "Max": 2
+    },
+    "BlueprintOrage": {
+      "Samples": 4948,
+      "P99": 4,
+      "Max": 10
+    },
+    "BlueprintPlymouth": {
+      "Samples": 266,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintRoon": {
+      "Samples": 9,
+      "P99": 1,
+      "Max": 1
+    },
+    "BlueprintRupprecht": {
+      "Samples": 252,
+      "P99": 2,
+      "Max": 3
+    },
+    "BlueprintSaintlouis": {
+      "Samples": 97,
+      "P99": 2,
+      "Max": 2
+    },
+    "BlueprintSeattle": {
+      "Samples": 24,
+      "P99": 3,
+      "Max": 3
+    },
+    "BlueprintShimanto": {
+      "Samples": 777,
+      "P99": 3,
+      "Max": 4
+    },
+    "BlueprintTakahashi": {
+      "Samples": 4906,
+      "P99": 4,
+      "Max": 9
+    },
+    "BlueprintValparaiso": {
+      "Samples": 5751,
+      "P99": 4,
+      "Max": 6
+    },
+    "BlueprintVittorioCuniberti": {
+      "Samples": 1074,
+      "P99": 4,
+      "Max": 10
+    },
+    "CognitiveChips": {
+      "Samples": 1527,
+      "P99": 117,
+      "Max": 212
+    },
+    "Coins": {
+      "Samples": 14800,
+      "P99": 193,
+      "Max": 370
+    },
+    "F2A_Buffalo_T3": {
+      "Samples": 952,
+      "P99": 1,
+      "Max": 2
+    },
+    "F4F_Wildcat_T3": {
+      "Samples": 452,
+      "P99": 2,
+      "Max": 2
+    },
+    "F4U_Corsair_T3": {
+      "Samples": 486,
+      "P99": 2,
+      "Max": 2
+    },
+    "F6F_Hellcat_T2": {
+      "Samples": 423,
+      "P99": 2,
+      "Max": 2
+    },
+    "F6F_Hellcat_T3": {
+      "Samples": 410,
+      "P99": 2,
+      "Max": 4
+    },
+    "Fire_Control_Radar_T3": {
+      "Samples": 467,
+      "P99": 2,
+      "Max": 2
+    },
+    "Fire_Suppressor_T3": {
+      "Samples": 937,
+      "P99": 1,
+      "Max": 2
+    },
+    "Fuel_Filter_T3": {
+      "Samples": 461,
+      "P99": 2,
+      "Max": 2
+    },
+    "Fulmar_T3": {
+      "Samples": 461,
+      "P99": 2,
+      "Max": 2
+    },
+    "Gyroscope_T3": {
+      "Samples": 497,
+      "P99": 2,
+      "Max": 2
+    },
+    "High_Performance_Air_Radar_T0": {
+      "Samples": 4538,
+      "P99": 4,
+      "Max": 6
+    },
+    "High_Performance_Hydraulic_Steering_Gear_T0": {
+      "Samples": 4425,
+      "P99": 3,
+      "Max": 8
+    },
+    "High_Standard_Fire_Control_Radar_T0": {
+      "Samples": 2529,
+      "P99": 2,
+      "Max": 4
+    },
+    "Hydraulic_Steering_Gear_T3": {
+      "Samples": 945,
+      "P99": 1,
+      "Max": 2
+    },
+    "Ju_87C_Dive_Bomber_T2": {
+      "Samples": 939,
+      "P99": 1,
+      "Max": 2
+    },
+    "Ju_87C_Dive_Bomber_T3": {
+      "Samples": 496,
+      "P99": 2,
+      "Max": 2
+    },
+    "Messerschmitt_Me_155A_T2": {
+      "Samples": 453,
+      "P99": 2,
+      "Max": 2
+    },
+    "Messerschmitt_Me_155A_T3": {
+      "Samples": 425,
+      "P99": 4,
+      "Max": 6
+    },
+    "Naval_Camouflage_T3": {
+      "Samples": 908,
+      "P99": 1,
+      "Max": 2
+    },
+    "Octuple_40mm_Pom_Pom_Gun_Mount_T2": {
+      "Samples": 490,
+      "P99": 2,
+      "Max": 2
+    },
+    "Octuple_40mm_Pom_Pom_Gun_Mount_T3": {
+      "Samples": 438,
+      "P99": 4,
+      "Max": 4
+    },
+    "Prototype_406mm_SK_C_34_Main_Gun_Mount_T0": {
+      "Samples": 16,
+      "P99": 3,
+      "Max": 6
+    },
+    "Prototype_BF_109G_T0": {
+      "Samples": 28,
+      "P99": 2,
+      "Max": 4
+    },
+    "Prototype_Carrier_Based_La_9_T0": {
+      "Samples": 86,
+      "P99": 3,
+      "Max": 4
+    },
+    "Prototype_Carrier_Based_Ta_152_C_1_R14_T0": {
+      "Samples": 1803,
+      "P99": 2,
+      "Max": 3
+    },
+    "Prototype_Quadruple_152mm_Main_Gun_Mount_T0": {
+      "Samples": 12,
+      "P99": 1,
+      "Max": 1
+    },
+    "Prototype_Quadruple_305mm_SKC39_Main_Gun_Mount_T0": {
+      "Samples": 407,
+      "P99": 2,
+      "Max": 3
+    },
+    "Prototype_Quadruple_30mm_AA_Gun_Mount_T0": {
+      "Samples": 9,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Quadruple_330mm_Mle_1931_CB_Only_Main_Gun_Mount_T0": {
+      "Samples": 18,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Saiun_Kai_T0": {
+      "Samples": 13,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Su_2_T0": {
+      "Samples": 13,
+      "P99": 2,
+      "Max": 2
+    },
+    "Prototype_Tenrai_T0": {
+      "Samples": 6,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Triple_152mm_DP_Mk_17_Main_Gun_Mount_T0": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "Prototype_Triple_152mm_Mk_XXV_Main_Gun_Mount_T0": {
+      "Samples": 13,
+      "P99": 3,
+      "Max": 4
+    },
+    "Prototype_Triple_203mm_AA_Gun_T0": {
+      "Samples": 14,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Triple_203mm_SKC_Main_Gun_Mount_T0": {
+      "Samples": 59,
+      "P99": 2,
+      "Max": 2
+    },
+    "Prototype_Triple_203mm_SK_C_34_Main_Gun_Mount_T0": {
+      "Samples": 10,
+      "P99": 2,
+      "Max": 3
+    },
+    "Prototype_Triple_305mm_SK_C_39_Main_Gun_Mount_CB_T0": {
+      "Samples": 27,
+      "P99": 2,
+      "Max": 3
+    },
+    "Prototype_Triple_305mm_SK_C_39_Main_Gun_Mount_T0": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "Prototype_Triple_310mm_Type_0_Main_Gun_Mount_T0": {
+      "Samples": 10,
+      "P99": 2,
+      "Max": 3
+    },
+    "Prototype_Triple_381mm_AA_Gun_T0": {
+      "Samples": 9,
+      "P99": 2,
+      "Max": 2
+    },
+    "Prototype_Triple_406mm_50_Main_Gun_Mount_T0": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "Prototype_Triple_406mm_Model_1940_Main_Gun_T0": {
+      "Samples": 17,
+      "P99": 1,
+      "Max": 1
+    },
+    "Prototype_Triple_410mm_Main_Gun_Mount_T0": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Twin_130mm_Model_1936_Main_Gun_Mount_T0": {
+      "Samples": 15,
+      "P99": 1,
+      "Max": 2
+    },
+    "Prototype_Twin_457mm_Mk_A_Main_Gun_Mount_T0": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "Prototype_Twin_90mm_Model_1939_High_Angle_Gun_T0": {
+      "Samples": 14,
+      "P99": 1,
+      "Max": 1
+    },
+    "Quadruple_20mm_Flakvierling_Machine_Gun_Mount_T3": {
+      "Samples": 934,
+      "P99": 1,
+      "Max": 2
+    },
+    "Quadruple_28mm_Chicago_Piano_AA_Gun_Mount_T3": {
+      "Samples": 484,
+      "P99": 2,
+      "Max": 2
+    },
+    "Quadruple_356mm_Main_Gun_Mount_T2": {
+      "Samples": 452,
+      "P99": 2,
+      "Max": 4
+    },
+    "Quadruple_356mm_Main_Gun_Mount_T3": {
+      "Samples": 458,
+      "P99": 4,
+      "Max": 6
+    },
+    "Quadruple_40mm_Bofors_AA_Gun_Mount_T2": {
+      "Samples": 496,
+      "P99": 2,
+      "Max": 2
+    },
+    "Quadruple_40mm_Bofors_AA_Gun_Mount_T3": {
+      "Samples": 414,
+      "P99": 4,
+      "Max": 4
+    },
+    "Quadruple_40mm_Pom_Pom_AA_Gun_Mount_T3": {
+      "Samples": 499,
+      "P99": 2,
+      "Max": 2
+    },
+    "Rammer_T3": {
+      "Samples": 934,
+      "P99": 1,
+      "Max": 2
+    },
+    "Repair_Toolkit_T3": {
+      "Samples": 420,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitBattleshipT1": {
+      "Samples": 569,
+      "P99": 2,
+      "Max": 3
+    },
+    "RetrofitBattleshipT2": {
+      "Samples": 32,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitBattleshipT3": {
+      "Samples": 54,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitCarrierT1": {
+      "Samples": 549,
+      "P99": 2,
+      "Max": 3
+    },
+    "RetrofitCarrierT2": {
+      "Samples": 23,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitCarrierT3": {
+      "Samples": 39,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitCruiserT1": {
+      "Samples": 559,
+      "P99": 2,
+      "Max": 3
+    },
+    "RetrofitCruiserT2": {
+      "Samples": 24,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitCruiserT3": {
+      "Samples": 42,
+      "P99": 2,
+      "Max": 2
+    },
+    "RetrofitDestroyerT1": {
+      "Samples": 564,
+      "P99": 2,
+      "Max": 71
+    },
+    "RetrofitDestroyerT2": {
+      "Samples": 27,
+      "P99": 1,
+      "Max": 1
+    },
+    "RetrofitDestroyerT3": {
+      "Samples": 41,
+      "P99": 2,
+      "Max": 2
+    },
+    "SB2C_Helldiver_T3": {
+      "Samples": 484,
+      "P99": 2,
+      "Max": 2
+    },
+    "SBD_Dauntless_T3": {
+      "Samples": 928,
+      "P99": 1,
+      "Max": 2
+    },
+    "SG_Radar_T2": {
+      "Samples": 489,
+      "P99": 2,
+      "Max": 2
+    },
+    "SG_Radar_T3": {
+      "Samples": 414,
+      "P99": 2,
+      "Max": 4
+    },
+    "Seafang_T2": {
+      "Samples": 458,
+      "P99": 2,
+      "Max": 2
+    },
+    "Seafang_T3": {
+      "Samples": 427,
+      "P99": 4,
+      "Max": 4
+    },
+    "Sextuple_40mm_Bofors_AA_Gun_Mount_T0": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 2
+    },
+    "Ship_Maintenance_Facility_T2": {
+      "Samples": 462,
+      "P99": 2,
+      "Max": 2
+    },
+    "Ship_Maintenance_Facility_T3": {
+      "Samples": 415,
+      "P99": 4,
+      "Max": 4
+    },
+    "Single_102mm_AA_Gun_Mount_T2": {
+      "Samples": 1115,
+      "P99": 2,
+      "Max": 2
+    },
+    "Single_102mm_AA_Gun_Mount_T3": {
+      "Samples": 325,
+      "P99": 2,
+      "Max": 2
+    },
+    "Single_120mm_QF_Mark_IX_Naval_Gun_T3": {
+      "Samples": 946,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_120mm_Type_3_Naval_Gun_T3": {
+      "Samples": 911,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_127mm_Main_Gun_Eagle_T3": {
+      "Samples": 467,
+      "P99": 2,
+      "Max": 2
+    },
+    "Single_127mm_Main_Gun_Iron_T3": {
+      "Samples": 927,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_12_7mm_AA_Gun_Mount_T3": {
+      "Samples": 941,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_140mm_Naval_Gun_T3": {
+      "Samples": 919,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_150mm_SK_C_28_Main_Gun_Mount_T3": {
+      "Samples": 434,
+      "P99": 2,
+      "Max": 2
+    },
+    "Single_152mm_Mk_XII_Main_Gun_Mount_T3": {
+      "Samples": 932,
+      "P99": 2,
+      "Max": 2
+    },
+    "Single_152mm_Secondary_Gun_Mount_T3": {
+      "Samples": 928,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_20mm_Oerlikon_AA_Gun_Mount_T3": {
+      "Samples": 1005,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_25mm_AA_Gun_Mount_T3": {
+      "Samples": 960,
+      "P99": 1,
+      "Max": 2
+    },
+    "Single_37mm_Flak_AA_Gun_Mount_T3": {
+      "Samples": 945,
+      "P99": 1,
+      "Max": 2
+    },
+    "SpecializedCores": {
+      "Samples": 35408,
+      "P99": 83,
+      "Max": 824
+    },
+    "Spitfire_T3": {
+      "Samples": 481,
+      "P99": 2,
+      "Max": 2
+    },
+    "Steam_Catapult_T2": {
+      "Samples": 505,
+      "P99": 2,
+      "Max": 2
+    },
+    "Steam_Catapult_T3": {
+      "Samples": 419,
+      "P99": 2,
+      "Max": 4
+    },
+    "Suisei_T2": {
+      "Samples": 457,
+      "P99": 2,
+      "Max": 2
+    },
+    "Suisei_T3": {
+      "Samples": 449,
+      "P99": 4,
+      "Max": 6
+    },
+    "Swordfish_T3": {
+      "Samples": 463,
+      "P99": 2,
+      "Max": 2
+    },
+    "TBD_Devastator_T3": {
+      "Samples": 976,
+      "P99": 1,
+      "Max": 2
+    },
+    "TBF_Avenger_T3": {
+      "Samples": 447,
+      "P99": 2,
+      "Max": 4
+    },
+    "Tenzan_T3": {
+      "Samples": 469,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_102mm_Secondary_Gun_Mount_T3": {
+      "Samples": 448,
+      "P99": 2,
+      "Max": 4
+    },
+    "Triple_150mm_SK_C_25_Main_Gun_Mount_T3": {
+      "Samples": 494,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_152mm_Main_Gun_Eagle_T3": {
+      "Samples": 504,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_155mm_Main_Gun_Mount_T2": {
+      "Samples": 423,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_155mm_Main_Gun_Mount_T3": {
+      "Samples": 416,
+      "P99": 2,
+      "Max": 4
+    },
+    "Triple_203mm_Improved_Main_Gun_Mount_T3": {
+      "Samples": 468,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_203mm_Main_Gun_Mount_Improved_T3": {
+      "Samples": 980,
+      "P99": 1,
+      "Max": 2
+    },
+    "Triple_25mm_AA_Gun_Mount_T3": {
+      "Samples": 457,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_283mm_SK_C_28_Main_Gun_Mount_T2": {
+      "Samples": 1835,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_283mm_SK_C_28_Main_Gun_Mount_T3": {
+      "Samples": 934,
+      "P99": 2,
+      "Max": 4
+    },
+    "Triple_356mm_Main_Gun_Mount_T3": {
+      "Samples": 960,
+      "P99": 1,
+      "Max": 2
+    },
+    "Triple_406mm_Main_Gun_T2": {
+      "Samples": 491,
+      "P99": 2,
+      "Max": 2
+    },
+    "Triple_406mm_Main_Gun_T3": {
+      "Samples": 407,
+      "P99": 4,
+      "Max": 4
+    },
+    "Triple_406mm_Mk_6_Main_Gun_Mount_T3": {
+      "Samples": 480,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_100mm_Mle_1931_AA_Gun_T3": {
+      "Samples": 950,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_100mm_Type_98_AA_Gun_Mount_T0": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 3
+    },
+    "Twin_100mm_Type_98_High_Angle_Gun_T2": {
+      "Samples": 491,
+      "P99": 2,
+      "Max": 4
+    },
+    "Twin_100mm_Type_98_High_Angle_Gun_T3": {
+      "Samples": 422,
+      "P99": 4,
+      "Max": 4
+    },
+    "Twin_102mm_Secondary_Gun_Mount_T3": {
+      "Samples": 950,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_105mm_SK_C_33_AA_Gun_Mount_T2": {
+      "Samples": 402,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_105mm_SK_C_33_AA_Gun_Mount_T3": {
+      "Samples": 407,
+      "P99": 4,
+      "Max": 4
+    },
+    "Twin_113mm_AA_Gun_Mount_T2": {
+      "Samples": 507,
+      "P99": 2,
+      "Max": 4
+    },
+    "Twin_113mm_AA_Gun_Mount_T3": {
+      "Samples": 405,
+      "P99": 4,
+      "Max": 4
+    },
+    "Twin_120mm_Main_Gun_Mount_T3": {
+      "Samples": 429,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_127mm_AA_Gun_Mount_T3": {
+      "Samples": 450,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_127mm_Mk_12_Dual_Purpose_Gun_Mount_T2": {
+      "Samples": 469,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_127mm_Mk_12_Dual_Purpose_Gun_Mount_T3": {
+      "Samples": 422,
+      "P99": 2,
+      "Max": 4
+    },
+    "Twin_127mm_Naval_Gun_Mount_T3": {
+      "Samples": 495,
+      "P99": 2,
+      "Max": 4
+    },
+    "Twin_128mm_SK_C_41_Dual_Purpose_Gun_Mount_T2": {
+      "Samples": 833,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_128mm_SK_C_41_Dual_Purpose_Gun_Mount_T3": {
+      "Samples": 454,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_134mm_High_Angle_Gun_Mount_T3": {
+      "Samples": 406,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_140mm_Naval_Gun_Mount_T3": {
+      "Samples": 472,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_150mm_TbtsK_C_36_Main_Gun_Mount_T3": {
+      "Samples": 477,
+      "P99": 2,
+      "Max": 4
+    },
+    "Twin_152mm_Main_Gun_Eagle_T3": {
+      "Samples": 943,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_152mm_Main_Gun_Royal_T3": {
+      "Samples": 485,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_203mm_Mk_VIII_Main_Gun_Mount_T3": {
+      "Samples": 470,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_203mm_Naval_Gun_Mount_T3": {
+      "Samples": 440,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_203mm_SK_C_34_T2": {
+      "Samples": 472,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_203mm_SK_C_34_T3": {
+      "Samples": 414,
+      "P99": 4,
+      "Max": 6
+    },
+    "Twin_20mm_AA_Oerlikon_Design_T3": {
+      "Samples": 444,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_25mm_AA_Gun_Mount_T3": {
+      "Samples": 503,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_356mm_Naval_Gun_Mount_T3": {
+      "Samples": 916,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_37mm_AA_70K_T3": {
+      "Samples": 451,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_37mm_Mle_1936_AA_Gun_Mount_T0": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "Twin_380mm_SK_C_34_Main_Gun_Mount_T2": {
+      "Samples": 474,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_380mm_SK_C_34_Main_Gun_Mount_T3": {
+      "Samples": 449,
+      "P99": 4,
+      "Max": 4
+    },
+    "Twin_381mm_Advanced_Main_Gun_Mount_T0": {
+      "Samples": 11,
+      "P99": 1,
+      "Max": 1
+    },
+    "Twin_381mm_Main_Gun_Mount_T3": {
+      "Samples": 456,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_406mm_Mk_5_Main_Gun_Mount_T3": {
+      "Samples": 434,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_40mm_Bofors_AA_Gun_Mount_T3": {
+      "Samples": 441,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_40mm_Bofors_Hazemeyer_AA_Gun_Mount_T0": {
+      "Samples": 4488,
+      "P99": 3,
+      "Max": 6
+    },
+    "Twin_40mm_Bofors_STAAG_T0": {
+      "Samples": 3394,
+      "P99": 3,
+      "Max": 6
+    },
+    "Twin_40mm_Bofors_Type_5_AA_Gun_Mount_T0": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_40mm_Pom_Pom_AA_Gun_Mount_T3": {
+      "Samples": 912,
+      "P99": 1,
+      "Max": 2
+    },
+    "Twin_40mm_V_Type_AA_Gun_Mount_T3": {
+      "Samples": 460,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_410mm_Naval_Gun_Mount_T3": {
+      "Samples": 425,
+      "P99": 2,
+      "Max": 2
+    },
+    "Twin_410mm_Type_3_Shell_Naval_Gun_Mount_T0": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "Type_0_Fighter_Model_21_T3": {
+      "Samples": 462,
+      "P99": 2,
+      "Max": 2
+    },
+    "Type_0_Fighter_Model_52_T2": {
+      "Samples": 485,
+      "P99": 2,
+      "Max": 4
+    },
+    "Type_0_Fighter_Model_52_T3": {
+      "Samples": 420,
+      "P99": 4,
+      "Max": 4
+    },
+    "Type_97_Torpedo_Bomber_T3": {
+      "Samples": 896,
+      "P99": 1,
+      "Max": 2
+    },
+    "Type_99_Dive_Bomber_T3": {
+      "Samples": 470,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-00D0A3C5A436": {
+      "Samples": 6,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-0308D48F7B80": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-04C953FCEC9E": {
+      "Samples": 98,
+      "P99": 4,
+      "Max": 4
+    },
+    "U-082081E05533": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-084367B6A47C": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-0A5DE78C6F21": {
+      "Samples": 11,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-0B3319BDF503": {
+      "Samples": 121,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-0B791330F5C3": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-0C97C9BDE13A": {
+      "Samples": 17,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-10BECA774ECF": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-10D74AA3C9D0": {
+      "Samples": 1150,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-113FA6579D03": {
+      "Samples": 641,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-131BB88FD9B5": {
+      "Samples": 36,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-13BABF959904": {
+      "Samples": 11,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-13FAAD6D5860": {
+      "Samples": 16,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-14C47ACC303F": {
+      "Samples": 276,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-15556B186E86": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-15B6502C0F61": {
+      "Samples": 17,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-1688E2943FCD": {
+      "Samples": 6,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-18521451DF8B": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-1F22377E93A2": {
+      "Samples": 41,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-1F842220381C": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-202A6E289169": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-20330A1904AC": {
+      "Samples": 3553,
+      "P99": 2,
+      "Max": 12
+    },
+    "U-21C0D6BF3176": {
+      "Samples": 12,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-23100C6495BF": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 41
+    },
+    "U-242422BA6BFB": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-258686619CA5": {
+      "Samples": 188,
+      "P99": 5,
+      "Max": 6
+    },
+    "U-26D1DCD2C22B": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-26E264365916": {
+      "Samples": 11,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-2843C5CA1A3F": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-286534CDE9C3": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-2934A6CAFE4D": {
+      "Samples": 36,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-29BE86CD2176": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-2C686D10E515": {
+      "Samples": 1,
+      "P99": 52,
+      "Max": 52
+    },
+    "U-2E13CB646550": {
+      "Samples": 45,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-2E16C6F14D55": {
+      "Samples": 10,
+      "P99": 2,
+      "Max": 71
+    },
+    "U-2E3F1DBD0B53": {
+      "Samples": 108,
+      "P99": 4,
+      "Max": 7
+    },
+    "U-3015EA8804F6": {
+      "Samples": 1109,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-3031DE2F9079": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-30CA05D99AA4": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-314284181524": {
+      "Samples": 8,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-320337398FE7": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-331D3BCC8C92": {
+      "Samples": 1,
+      "P99": 19,
+      "Max": 19
+    },
+    "U-335D3E2EE8A4": {
+      "Samples": 20,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-35AC2441066D": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-388E73B27640": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-3B9452F10057": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-3BD2E4E6F8CC": {
+      "Samples": 47,
+      "P99": 4,
+      "Max": 5
+    },
+    "U-3DE6E0F9A3D3": {
+      "Samples": 29,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-3EC3F6331E12": {
+      "Samples": 23,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-3F10EB09050B": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-3F4AE1AA54D8": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-3F76B80AEB24": {
+      "Samples": 1,
+      "P99": 4,
+      "Max": 4
+    },
+    "U-3FFDFC5344E7": {
+      "Samples": 42,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-417A4A41FF85": {
+      "Samples": 18,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-418B0A74A7E4": {
+      "Samples": 122,
+      "P99": 3,
+      "Max": 5
+    },
+    "U-41B9C9697D48": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-43B1368754CA": {
+      "Samples": 646,
+      "P99": 3,
+      "Max": 5
+    },
+    "U-48A7AB94552B": {
+      "Samples": 3538,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-49DBF48A6842": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-4A74633A2DF1": {
+      "Samples": 16,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-4B4999637406": {
+      "Samples": 15,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-4CA269CB17F9": {
+      "Samples": 10,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-4DB1689D0259": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-4DE89955D58A": {
+      "Samples": 16,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-4F7E2D21948D": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-4F81C360DA9F": {
+      "Samples": 57,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-4FE5C38F2A67": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-528B5A0464B8": {
+      "Samples": 44,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-5517DCA24F1F": {
+      "Samples": 34,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-5677DCF37FF3": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-56883FF89EE8": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-5891BD00F7B0": {
+      "Samples": 47,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-5AB80025F685": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-5B99D7239247": {
+      "Samples": 9,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-5F6AC167BCD8": {
+      "Samples": 111,
+      "P99": 3,
+      "Max": 5
+    },
+    "U-609CF89A201A": {
+      "Samples": 55,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-6426D03834FA": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-65BABFFEAD6F": {
+      "Samples": 10,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-67F5C4AF0D77": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-69401FC4941D": {
+      "Samples": 1,
+      "P99": 32,
+      "Max": 32
+    },
+    "U-69FEA6E33616": {
+      "Samples": 49,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-6A453031F591": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-6CF389F56FD7": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-6CF3CF3C6A74": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-6DF920007815": {
+      "Samples": 33,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-6E8D0D5352BE": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-6EACF0E0B002": {
+      "Samples": 41,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-703B0BCDB2FE": {
+      "Samples": 1,
+      "P99": 51,
+      "Max": 51
+    },
+    "U-715F8F0DACD5": {
+      "Samples": 25,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-71F373397C56": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-7444306C1517": {
+      "Samples": 29,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-74DEE0F48860": {
+      "Samples": 21,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-76BBC0B0AA73": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-77FFE6F6B097": {
+      "Samples": 14,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-783DFE13403E": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-790E83EF10F3": {
+      "Samples": 1,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-7A0182F5B0BA": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-7B8AB42268E6": {
+      "Samples": 69,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-7C8D3FFB14FC": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-7D36E438BC84": {
+      "Samples": 12,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-804DDC81E8D7": {
+      "Samples": 63,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-815B265B9021": {
+      "Samples": 27,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-824CCDC2FF64": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-8275284FF4B2": {
+      "Samples": 10,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-831E29FC3565": {
+      "Samples": 211,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-84A4C1B94823": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-851CCE4F66B0": {
+      "Samples": 1,
+      "P99": 20,
+      "Max": 20
+    },
+    "U-8532B3A98BC0": {
+      "Samples": 1,
+      "P99": 14,
+      "Max": 14
+    },
+    "U-859CB4BC48C7": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-8601341D2A3D": {
+      "Samples": 15,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-86A07AF89454": {
+      "Samples": 70,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-86EE8FD484B8": {
+      "Samples": 35,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-8844B8A8737B": {
+      "Samples": 11,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-8B4CA5CC1CA5": {
+      "Samples": 10,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-8BCA17EAA888": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-8CB5F06C1B9F": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-8D2A748911DD": {
+      "Samples": 3474,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-8F4EA72F47DB": {
+      "Samples": 113,
+      "P99": 3,
+      "Max": 6
+    },
+    "U-8FFC0B355CAF": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-90D5934A6363": {
+      "Samples": 9,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-92E23CC3816E": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-934E0A58DE37": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-93AF698DD431": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-95A9E7E2D4EE": {
+      "Samples": 21,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-97249826780D": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-98E11E099B3E": {
+      "Samples": 35,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-99DD3AF0193C": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-9A854F826772": {
+      "Samples": 7,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-9A98A7BAF364": {
+      "Samples": 14,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-9CC714F22F35": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-9D93E0DA328A": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-9F1A8F95E8B4": {
+      "Samples": 38,
+      "P99": 4,
+      "Max": 5
+    },
+    "U-A06EC48CB1DE": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-A0DEB67F375F": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-A20BF95BAAAA": {
+      "Samples": 437,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-A30BF2FE9D4E": {
+      "Samples": 98,
+      "P99": 3,
+      "Max": 5
+    },
+    "U-A42482D5EA6B": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-A839B746C58F": {
+      "Samples": 1,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-ABA115BA16E6": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-ACA53D65F44B": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-ADAE24C0D471": {
+      "Samples": 34,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-ADD2823563F6": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-ADD95E933DC8": {
+      "Samples": 15,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-AE52D19E391F": {
+      "Samples": 40,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-AEBA9D13717F": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-B2C439E42E0C": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-B4E75F531270": {
+      "Samples": 16,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-B587B86A1B0F": {
+      "Samples": 84,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-B72DCDBA8C38": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-B7A6E27E1323": {
+      "Samples": 1,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-B9178C60A8AC": {
+      "Samples": 1,
+      "P99": 7,
+      "Max": 7
+    },
+    "U-B942447D2966": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-B97E583FE083": {
+      "Samples": 185,
+      "P99": 3,
+      "Max": 4
+    },
+    "U-BA0178D5B5B3": {
+      "Samples": 15,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-BA6C65C8800E": {
+      "Samples": 40,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-BAEE88327A36": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-BB968965B034": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-BDAA8285EFF9": {
+      "Samples": 47,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-BEEA68DBC040": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-C125D2AE5462": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-C2566056295A": {
+      "Samples": 77,
+      "P99": 3,
+      "Max": 4
+    },
+    "U-C3074A640E3A": {
+      "Samples": 640,
+      "P99": 3,
+      "Max": 5
+    },
+    "U-C30D62B1A8E2": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-C3AF07CA56FA": {
+      "Samples": 74,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-C3FA3E17C465": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-C59052CD1B05": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-C609E2CAF584": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-C720C024D12C": {
+      "Samples": 22,
+      "P99": 3,
+      "Max": 22
+    },
+    "U-C7BEB95C6562": {
+      "Samples": 6,
+      "P99": 1,
+      "Max": 122
+    },
+    "U-C7D114848393": {
+      "Samples": 188,
+      "P99": 3,
+      "Max": 5
+    },
+    "U-C854DE065637": {
+      "Samples": 8,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CA6A85B720E0": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CC4A83E7B605": {
+      "Samples": 11,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-CCB0407B546E": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CD3D6BE0ACF3": {
+      "Samples": 11,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CE3064A7E4A5": {
+      "Samples": 42,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CEA08B07FF3B": {
+      "Samples": 5,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CF18258C1050": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-CF6EC335138C": {
+      "Samples": 48,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-D14DAC771DC6": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-D1CEB7A2E031": {
+      "Samples": 2,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-D28322343DAE": {
+      "Samples": 2149,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-D3B84926E729": {
+      "Samples": 17,
+      "P99": 2,
+      "Max": 4
+    },
+    "U-D5ADD35888BE": {
+      "Samples": 1104,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-D61A8C9AEEC5": {
+      "Samples": 973,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-D629BD2373FC": {
+      "Samples": 11,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-D6B1386D91BD": {
+      "Samples": 5,
+      "P99": 3,
+      "Max": 3
+    },
+    "U-D7A05093DA46": {
+      "Samples": 18,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-D7B025ED9447": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-DD4E914E718D": {
+      "Samples": 36,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-DE8FD6B79D79": {
+      "Samples": 1,
+      "P99": 161,
+      "Max": 161
+    },
+    "U-DF44ADFC2E23": {
+      "Samples": 1,
+      "P99": 21,
+      "Max": 21
+    },
+    "U-DF71AE89B1C6": {
+      "Samples": 16,
+      "P99": 22,
+      "Max": 22
+    },
+    "U-DFEDE89A9EC8": {
+      "Samples": 56,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-DFEF9A4D6206": {
+      "Samples": 7,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-E01E091838EA": {
+      "Samples": 33,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-E04AF8BCB3C1": {
+      "Samples": 9,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-E45E4FE91EA4": {
+      "Samples": 28,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-E5A5D034DA84": {
+      "Samples": 166,
+      "P99": 251,
+      "Max": 251
+    },
+    "U-E6549A6C6964": {
+      "Samples": 12,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-E7B389DF0A86": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-E7C8F97A60B4": {
+      "Samples": 1,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-E8970464A3F1": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-EBA7673E1F36": {
+      "Samples": 137,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-EE736344DA4D": {
+      "Samples": 22,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-F10B523B977E": {
+      "Samples": 3,
+      "P99": 1,
+      "Max": 2
+    },
+    "U-F15F892FC59B": {
+      "Samples": 45,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-F165AB37D074": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-F1E8D9E9DAAE": {
+      "Samples": 1,
+      "P99": 521,
+      "Max": 521
+    },
+    "U-F25B3672B711": {
+      "Samples": 61,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-F38ED8FE7AEE": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-F653AED2C7EF": {
+      "Samples": 41,
+      "P99": 21,
+      "Max": 21
+    },
+    "U-F77C452BBB33": {
+      "Samples": 4,
+      "P99": 1,
+      "Max": 1
+    },
+    "U-F789521E0E3D": {
+      "Samples": 6,
+      "P99": 2,
+      "Max": 2
+    },
+    "U-F8AB6274F79B": {
+      "Samples": 85,
+      "P99": 2,
+      "Max": 3
+    },
+    "U-F9C8D84B5B89": {
+      "Samples": 2,
+      "P99": 21,
+      "Max": 71
+    },
+    "U-FBC982097775": {
+      "Samples": 1,
+      "P99": 1,
+      "Max": 1
+    }
+  }
+}

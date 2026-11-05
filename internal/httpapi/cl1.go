@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"ap-cloud-server/internal/store"
@@ -197,27 +198,19 @@ func (s *Server) handlePostCl1(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, errValidation("collected_at 必须是带时区的 RFC 3339 时间", "collected_at"))
 		return
 	}
-	if req.BattleCount < 1 {
-		writeError(w, r, errValidation("battle_count 必须为正整数；零战斗时不提交", "battle_count"))
-		return
-	}
-	if req.AkashiEncounters < 0 {
-		writeError(w, r, errValidation("akashi_encounters 不能为负数", "akashi_encounters"))
-		return
-	}
-	if req.AkashiAP < 0 {
-		writeError(w, r, errValidation("akashi_ap 不能为负数", "akashi_ap"))
-		return
-	}
-
 	sum := sha256.Sum256(body)
 	s.saveCl1(w, r, req, collectedAt, hex.EncodeToString(sum[:]), false)
 }
 
 func (s *Server) saveCl1(w http.ResponseWriter, r *http.Request, req cl1Request, collectedAt time.Time, bodyHash string, legacy bool) {
+	req.DeviceID, req.InstanceID = strings.ToLower(req.DeviceID), strings.ToLower(req.InstanceID)
+	receivedAt := s.now().UTC()
 	// Both protocols share server-side metrics, durable dedup and snapshots.
-	battleRounds, sortieCost, netGain, probability, averageStamina :=
-		computeMetrics(req.BattleCount, req.AkashiEncounters, req.AkashiAP)
+	var battleRounds, sortieCost, netGain int64
+	var probability, averageStamina float64
+	if store.Cl1TotalsValid(store.Cl1Record{Month: req.Month, CollectedAt: collectedAt, BattleCount: req.BattleCount, AkashiEncounters: req.AkashiEncounters, AkashiAP: req.AkashiAP}, receivedAt) {
+		battleRounds, sortieCost, netGain, probability, averageStamina = computeMetrics(req.BattleCount, req.AkashiEncounters, req.AkashiAP)
+	}
 	resp := cl1Response{
 		SchemaVersion: schemaVersion,
 		RequestID:     req.RequestID,
@@ -254,6 +247,7 @@ func (s *Server) saveCl1(w http.ResponseWriter, r *http.Request, req cl1Request,
 		InstanceID:        req.InstanceID,
 		Month:             req.Month,
 		CollectedAt:       collectedAt,
+		ReceivedAt:        receivedAt,
 		BattleCount:       req.BattleCount,
 		BattleRounds:      battleRounds,
 		SortieCost:        sortieCost,
@@ -270,7 +264,7 @@ func (s *Server) saveCl1(w http.ResponseWriter, r *http.Request, req cl1Request,
 	}
 
 	switch outcome {
-	case store.Cl1Accepted:
+	case store.Cl1Accepted, store.Cl1Observed, store.Cl1Discarded:
 		// 快照与去重记录已原子提交，返回刚组装的业务结果。
 		if r.URL.Path == "/api/telemetry" {
 			s.writeLegacyCl1(w, r, resp)

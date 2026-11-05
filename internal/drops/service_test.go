@@ -18,6 +18,8 @@ func fixedService() *Service {
 func validCommission() Drop {
 	return Drop{
 		RecordID:    "record-12345678",
+		DeviceID:    "0123456789abcdef0123456789abcdef",
+		Client:      "AzurPilot",
 		Scene:       v3db.SceneCommission,
 		Server:      "cn",
 		Status:      ptrInt(1),
@@ -31,6 +33,8 @@ func validCommission() Drop {
 func validResearch() Drop {
 	return Drop{
 		RecordID:    "record-87654321",
+		DeviceID:    "0123456789abcdef0123456789abcdef",
+		Client:      "AzurPilot",
 		Scene:       v3db.SceneResearch,
 		Server:      "cn",
 		Status:      ptrInt(0),
@@ -79,6 +83,11 @@ func TestValidateRejectsBadFields(t *testing.T) {
 		{"record id 过短", func(d *Drop) { d.RecordID = "short" }},
 		{"record id 含非法字符", func(d *Drop) { d.RecordID = "record/12345678" }},
 		{"未知区服", func(d *Drop) { d.Server = "kr" }},
+		{"空设备", func(d *Drop) { d.DeviceID = "" }},
+		{"空客户端", func(d *Drop) { d.Client = " " }},
+		{"伪造设备格式", func(d *Drop) { d.DeviceID = "device-123" }},
+		{"负模板版本", func(d *Drop) { d.TemplateRevision = -1 }},
+		{"未来采集时间", func(d *Drop) { d.CollectedAt = "2026-10-30T12:00:00Z" }},
 		{"缺少 status", func(d *Drop) { d.Status = nil }},
 		{"status 越界", func(d *Drop) { d.Status = ptrInt(2) }},
 		{"collected_at 无时区", func(d *Drop) { d.CollectedAt = "2026-10-29T12:00:00" }},
@@ -101,6 +110,33 @@ func TestValidateRejectsBadFields(t *testing.T) {
 				t.Fatalf("应返回 invalid，实际 %q", status)
 			}
 		})
+	}
+}
+
+func TestRewardLimitsRejectPoisoningAndSplitAliases(t *testing.T) {
+	s := fixedService()
+	for _, items := range [][]Item{
+		{{Item: "Cube", Amount: 999932}},
+		{{Item: "Coins", Amount: 999921}},
+		{{Item: "Oil", Amount: 999953}},
+		{{Item: "CognitiveChips", Amount: 999997}},
+		{{Item: "Cubes", Amount: 30}, {Item: "Cube", Tag: "bonus", Amount: 30}},
+	} {
+		d := validCommission()
+		d.Items = items
+		if _, status, _ := s.validate(d); status != AckInvalid {
+			t.Fatalf("poisoned/split rewards accepted: %+v", items)
+		}
+	}
+	d := validResearch()
+	d.Items = []Item{{Item: "BlueprintAgir", Amount: 100000}}
+	if _, status, _ := s.validate(d); status != AckInvalid {
+		t.Fatal("unreasonable research reward accepted")
+	}
+	d = validCommission()
+	d.Items = []Item{{Item: "Coins", Amount: 4994}, {Item: "Oil", Amount: 991}, {Item: "Cubes", Amount: 6}}
+	if _, status, msg := s.validate(d); status != "" {
+		t.Fatalf("observed legitimate maxima rejected: %s", msg)
 	}
 }
 

@@ -25,6 +25,9 @@ const (
 	Cl1RequestConflict
 	// Cl1StaleSnapshot 表示旧快照不能覆盖新快照。
 	Cl1StaleSnapshot
+	// Observed and discarded requests receive the ordinary successful acknowledgement.
+	Cl1Observed
+	Cl1Discarded
 )
 
 // Cl1Record 是一次 CL1 月度快照写入。
@@ -35,6 +38,7 @@ type Cl1Record struct {
 	InstanceID        string
 	Month             string
 	CollectedAt       time.Time
+	ReceivedAt        time.Time
 	BattleCount       int64
 	BattleRounds      int64
 	SortieCost        int64
@@ -49,19 +53,31 @@ type Cl1Record struct {
 //
 // 语义（重构计划 3.5）：
 //   - 按 (device_id, instance_id, month) 覆盖更新，不累加；
-//   - 旧快照（collected_at 更早）不能覆盖新快照 → Cl1StaleSnapshot；
+//   - 旧观察不能覆盖新数据，也不能推进观察次数；
 //   - 同 request_id 同正文重试 → Cl1Duplicate，返回原业务结果；
 //   - 同 request_id 不同正文 → Cl1RequestConflict；
 //   - responseJSON 是 duplicate=false 的完整成功响应体，
-//     首次成功时与去重记录一起原子提交。
+//     观察中或封禁中的请求也返回同样的成功回执，但不写正式统计。
 //
 // 返回 (结果, 需要返回给客户端的响应体, error)。
-// Reserving the request ID first serializes concurrent retries before any
-// snapshot mutation. A stale snapshot rolls back the reservation as well.
+// A pair lock serializes observation and ban decisions across months and servers.
+// Durable request dedup prevents a retried observation from advancing probation.
 func (s *Store) SubmitCl1(ctx context.Context, rec Cl1Record, bodyHash string, responseJSON []byte) (Cl1Outcome, []byte, error) {
 	outcome, payload := Cl1Accepted, responseJSON
 	stale := errors.New("stale snapshot")
 	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		now := rec.ReceivedAt
+		if now.IsZero() {
+			now = time.Now().UTC()
+		}
+		source, err := lockCl1Source(tx, rec, now)
+		if err != nil {
+			return err
+		}
+		if source.BlockedUntil != nil && now.Before(*source.BlockedUntil) {
+			outcome = Cl1Discarded
+			return nil
+		}
 		dedup := Cl1Dedup{RequestID: rec.RequestID, DeviceID: rec.DeviceID, InstanceID: rec.InstanceID, BodyHash: bodyHash, Response: datatypes.JSON(responseJSON), ExpiresAt: time.Now().UTC().Add(s.DedupTTL)}
 		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&dedup)
 		if result.Error != nil {
@@ -78,6 +94,10 @@ func (s *Store) SubmitCl1(ctx context.Context, rec Cl1Record, bodyHash string, r
 				outcome, payload = Cl1RequestConflict, nil
 			}
 			return nil
+		}
+		outcome, err = observeCl1(tx, &source, rec, now)
+		if err != nil || outcome != Cl1Accepted {
+			return err
 		}
 		row := Cl1Snapshot{DeviceID: rec.DeviceID, InstanceID: rec.InstanceID, Month: rec.Month, CollectedAt: rec.CollectedAt, BattleCount: rec.BattleCount, BattleRounds: rec.BattleRounds, SortieCost: rec.SortieCost, AkashiEncounters: rec.AkashiEncounters, AkashiAP: rec.AkashiAP, AkashiProbability: rec.AkashiProbability, AverageStamina: rec.AverageStamina, NetStaminaGain: rec.NetStaminaGain}
 		conditions := []clause.Expression{clause.Lte{Column: clause.Column{Table: row.TableName(), Name: "collected_at"}, Value: clause.Column{Table: "excluded", Name: "collected_at"}}}

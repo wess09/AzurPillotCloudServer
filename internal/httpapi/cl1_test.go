@@ -92,8 +92,6 @@ func TestCl1Validation(t *testing.T) {
 		}, 400, "DEVICE_ID_MISMATCH"},
 		{"月份非法", strings.Replace(validCl1Body, "2026-10", "2026-13", 1), nil, 400, "VALIDATION_ERROR"},
 		{"时间缺时区", strings.Replace(validCl1Body, "2026-10-26T10:00:00.000Z", "2026-10-26T10:00:00", 1), nil, 400, "VALIDATION_ERROR"},
-		{"零战斗", strings.Replace(validCl1Body, `"battle_count": 1200`, `"battle_count": 0`, 1), nil, 400, "VALIDATION_ERROR"},
-		{"负遭遇", strings.Replace(validCl1Body, `"akashi_encounters": 60`, `"akashi_encounters": -1`, 1), nil, 400, "VALIDATION_ERROR"},
 		{"缺少设备头", validCl1Body, func(r *http.Request) {
 			r.Header.Set("X-AzurPilot-ID", "")
 		}, 400, "INVALID_DEVICE_ID"},

@@ -29,7 +29,7 @@ func TestLegacyAPTelemetryContract(t *testing.T) {
 	if w.Code != 200 || id != b.submitted.RequestID || hash != b.submittedHash {
 		t.Fatal("derived fields changed idempotency", w.Body)
 	}
-	if w = post(strings.Replace(body, `"net_stamina_gain":4200`, `"net_stamina_gain":-1`, 1)); w.Code != 400 {
+	if w = post(strings.Replace(body, `"net_stamina_gain":4200`, `"net_stamina_gain":-1`, 1)); w.Code != 200 {
 		t.Fatal(w.Code, w.Body)
 	}
 }

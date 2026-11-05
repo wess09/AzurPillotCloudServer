@@ -36,6 +36,37 @@ type Cl1Dedup struct {
 
 func (Cl1Dedup) TableName() string { return "cl1_dedup" }
 
+// Intake state is private and survives restarts; it is never a public statistic.
+type Cl1Source struct {
+	DeviceID     string `gorm:"type:text;primaryKey"`
+	InstanceID   string `gorm:"type:text;primaryKey"`
+	BlockedUntil *time.Time
+	BlockReason  string    `gorm:"type:text;not null;default:''"`
+	UpdatedAt    time.Time `gorm:"not null"`
+}
+
+func (Cl1Source) TableName() string { return "cl1_sources" }
+
+type Cl1Observation struct {
+	DeviceID        string `gorm:"type:text;primaryKey"`
+	InstanceID      string `gorm:"type:text;primaryKey"`
+	Month           string `gorm:"type:text;primaryKey"`
+	Checks          int    `gorm:"not null"`
+	StartedAt       time.Time
+	StartBattles    int64
+	StartEncounters int64
+	StartAP         int64
+	LastCollectedAt time.Time
+	LastReceivedAt  time.Time
+	LastCheckAt     time.Time
+	LastBattles     int64
+	LastEncounters  int64
+	LastAP          int64
+	UpdatedAt       time.Time `gorm:"not null"`
+}
+
+func (Cl1Observation) TableName() string { return "cl1_observations" }
+
 type MaintenanceSchedule struct {
 	Server    string    `gorm:"type:text;primaryKey"`
 	Name      string    `gorm:"type:text;not null"`

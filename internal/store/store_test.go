@@ -61,7 +61,8 @@ func TestCl1SubmitLifecycle(t *testing.T) {
 		}
 	}
 
-	// 1. 首次提交成功。
+	approveCl1ForTest(t, s, rec(now))
+	// 1. 已通过观察的来源提交成功。
 	outcome, payload, err := s.SubmitCl1(ctx, rec(now), hash1, body1)
 	if err != nil || outcome != Cl1Accepted || string(payload) != string(body1) {
 		t.Fatalf("首次提交错误: outcome=%v err=%v payload=%s", outcome, err, payload)
@@ -79,16 +80,16 @@ func TestCl1SubmitLifecycle(t *testing.T) {
 		t.Fatalf("冲突检测错误: outcome=%v err=%v", outcome, err)
 	}
 
-	// 4. 另一个 request_id 提交更旧的 collected_at → STALE_SNAPSHOT。
+	// 4. 另一个 request_id 的旧观察不覆盖快照，也不触发封禁。
 	stale := rec(now.Add(-time.Hour))
 	stale.RequestID = uniqueID("req")
 	outcome, _, err = s.SubmitCl1(ctx, stale, "cccc", body2)
-	if err != nil || outcome != Cl1StaleSnapshot {
+	if err != nil || outcome != Cl1Observed {
 		t.Fatalf("旧快照检测错误: outcome=%v err=%v", outcome, err)
 	}
 
 	// 5. 更新的 collected_at 覆盖成功。
-	fresh := rec(now.Add(time.Hour))
+	fresh := rec(now.Add(30 * time.Second))
 	fresh.RequestID = uniqueID("req")
 	outcome, _, err = s.SubmitCl1(ctx, fresh, "dddd", body2)
 	if err != nil || outcome != Cl1Accepted {
@@ -118,6 +119,7 @@ func TestCl1ConcurrentSameRequestID(t *testing.T) {
 		AkashiProbability: 1, AverageStamina: 5, NetStaminaGain: 5,
 	}
 	body := []byte(`{}`)
+	approveCl1ForTest(t, s, rec)
 
 	var wg sync.WaitGroup
 	results := make([]Cl1Outcome, 4)

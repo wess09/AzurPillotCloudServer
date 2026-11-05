@@ -116,7 +116,7 @@ func (s *Server) handleLegacyTelemetry(w http.ResponseWriter, r *http.Request) {
 	if ap == nil {
 		ap = old.NetStaminaGain
 	}
-	if ap == nil || *ap < 0 || old.BattleCount < 1 || old.BattleCount > 1e12 || old.AkashiEncounters < 0 || old.AkashiEncounters > 1e12 || *ap > 1e15 {
+	if ap == nil {
 		writeError(w, r, errValidation("无效计数或行动力", "body"))
 		return
 	}

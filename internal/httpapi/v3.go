@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -59,6 +60,7 @@ func (s *Server) handleV3Drops(w http.ResponseWriter, r *http.Request) {
 	}
 	body := http.MaxBytesReader(w, r.Body, v3MaxBodyBytes)
 	dec := json.NewDecoder(body)
+	dec.DisallowUnknownFields()
 	var batch drops.Batch
 	if err := dec.Decode(&batch); err != nil {
 		var maxErr *http.MaxBytesError
@@ -66,6 +68,10 @@ func (s *Server) handleV3Drops(w http.ResponseWriter, r *http.Request) {
 			writeV3Error(w, r, apiError{http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "请求体超过 1 MiB 上限", map[string]any{}})
 			return
 		}
+		writeV3Error(w, r, errInvalidJSON())
+		return
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		writeV3Error(w, r, errInvalidJSON())
 		return
 	}

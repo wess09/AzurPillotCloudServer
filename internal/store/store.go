@@ -32,6 +32,9 @@ func Open(ctx context.Context, dsn string, dedupTTL time.Duration) (*Store, erro
 			// Retire only the explicitly abandoned A/B and embedded-template schema.
 			return tx.Migrator().DropTable("candidate_sources", "stat_templates", "template_candidates", "stat_items", "stat_events", "stat_result_versions", "stat_results", "template_active", "template_releases", "worker_commands", "stat_workers", "unknown_cluster_aliases", "unknown_mappings", "unknown_templates", "templates", "template_state", "content_releases", "schema_migrations")
 		}},
+		database.Migration{Version: 3, Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(&Cl1Source{}, &Cl1Observation{})
+		}},
 	); err != nil {
 		_ = s.Close()
 		return nil, err
